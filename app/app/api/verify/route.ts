@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyCloudProof, IVerifyResponse, ISuccessResult } from '@worldcoin/minikit-js'
 
 interface IRequestPayload {
-  payload: ISuccessResult
+  payload: {
+    proof: string
+    merkle_root: string
+    nullifier_hash: string
+    verification_level: string
+  }
   action: string
   signal: string | undefined
 }
@@ -10,11 +14,29 @@ interface IRequestPayload {
 export async function POST(req: NextRequest) {
   const { payload, action, signal } = (await req.json()) as IRequestPayload
 
-  const app_id = process.env.NEXT_PUBLIC_APP_ID as `app_${string}`
-  const verifyRes = (await verifyCloudProof(payload, app_id, action, signal)) as IVerifyResponse
+  const rpId = process.env.WORLD_RP_ID
 
-  if (verifyRes.success) {
-    // Proof is valid — forward to Dev 3's CRE endpoint if configured
+  if (!rpId) {
+    return NextResponse.json({ error: 'Missing RP credentials' }, { status: 500 })
+  }
+
+  // World ID 4.0 verification — forward to World's cloud API using rp_id
+  const verifyRes = await fetch(`https://developer.world.org/api/v4/verify/${rpId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...payload,
+      action,
+      signal_hash: signal
+        ? '0x' + Buffer.from(signal).toString('hex').slice(0, 64).padStart(64, '0')
+        : undefined,
+    }),
+  })
+
+  const verifyData = await verifyRes.json()
+
+  if (verifyRes.ok) {
+    // Forward proof to Dev 3's CRE endpoint if configured
     const creEndpoint = process.env.CRE_INTAKE_ENDPOINT
     if (creEndpoint) {
       await fetch(creEndpoint, {
@@ -31,6 +53,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, status: 200 })
   } else {
-    return NextResponse.json({ success: false, error: verifyRes, status: 400 }, { status: 400 })
+    return NextResponse.json({ success: false, error: verifyData, status: 400 }, { status: 400 })
   }
 }

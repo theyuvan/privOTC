@@ -1,6 +1,7 @@
 'use client'
 
-import { MiniKit, VerificationLevel } from '@worldcoin/minikit-js'
+import { MiniKit } from '@worldcoin/minikit-js'
+import { IDKit, orbLegacy } from '@worldcoin/idkit-core'
 import { useState } from 'react'
 
 interface VerifyButtonProps {
@@ -16,7 +17,7 @@ export function VerifyButton({ onVerified }: VerifyButtonProps) {
     setError(null)
 
     try {
-      // Step 1: Get wallet address
+      // Step 1: Connect wallet via MiniKit
       const walletRes = await MiniKit.commandsAsync.walletAuth({
         nonce: crypto.randomUUID(),
         statement: 'Connect to PrivOTC to trade confidentially',
@@ -30,31 +31,47 @@ export function VerifyButton({ onVerified }: VerifyButtonProps) {
 
       const walletAddress = walletRes.finalPayload.address
 
-      // Step 2: World ID verification
-      const verifyRes = await MiniKit.commandsAsync.verify({
-        action: process.env.NEXT_PUBLIC_WORLD_ACTION || 'verify-trade',
-        signal: walletAddress,
-        verification_level: VerificationLevel.Orb,
-      })
+      // Step 2: Fetch RP signature from backend (World ID 4.0 requirement)
+      const rpRes = await fetch('/api/rp-signature', { method: 'POST' })
+      if (!rpRes.ok) {
+        setError('Failed to initialize verification. Please try again.')
+        setLoading(false)
+        return
+      }
+      const rpContext = await rpRes.json()
 
-      if (verifyRes.finalPayload.status === 'error') {
-        setError('World ID verification failed. Only Orb-verified humans can trade.')
+      // Step 3: World ID 4.0 verification via IDKit
+      const action = process.env.NEXT_PUBLIC_WORLD_ACTION || 'verify-trade'
+      const appId = process.env.NEXT_PUBLIC_APP_ID as `app_${string}`
+
+      const request = await IDKit.request({
+        app_id: appId,
+        action,
+        rp_context: rpContext,
+        allow_legacy_proofs: true,
+        environment: 'production',
+      }).preset(orbLegacy({ signal: walletAddress }))
+
+      const completion = await request.pollUntilCompletion()
+
+      if (!completion.success) {
+        setError(`Verification failed: ${completion.error ?? 'Unknown error'}`)
         setLoading(false)
         return
       }
 
-      // Step 3: Validate proof on backend
-      const res = await fetch('/api/verify', {
+      // Step 4: Validate proof on backend
+      const verifyRes = await fetch('/api/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          payload: verifyRes.finalPayload,
-          action: process.env.NEXT_PUBLIC_WORLD_ACTION || 'verify-trade',
+          payload: completion.result,
+          action,
           signal: walletAddress,
         }),
       })
 
-      const data = await res.json()
+      const data = await verifyRes.json()
 
       if (data.success) {
         onVerified(walletAddress)
