@@ -38,8 +38,8 @@ export default function Home() {
           </span>
         </div>
         {walletAddress && (
-          <span className="text-xs text-gray-400 font-mono">
-            {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+          <span className="text-xs text-gray-400 font-mono" title="World ID nullifier">
+            ID·{walletAddress.slice(2, 8)}···{walletAddress.slice(-4)}
           </span>
         )}
       </header>
@@ -75,7 +75,11 @@ export default function Home() {
             <VerifyButton onVerified={handleVerified} />
 
             <p className="text-[11px] text-gray-400">
-              Verified humans only. Take a quick selfie in World App — no Orb needed.
+              Scan the QR code with the{' '}
+              <a href="https://simulator.worldcoin.org" target="_blank" rel="noopener noreferrer" className="underline">
+                World Simulator
+              </a>{' '}
+              — no Orb required for testing.
             </p>
           </div>
         )}
