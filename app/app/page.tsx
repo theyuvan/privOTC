@@ -75,7 +75,7 @@ export default function Home() {
             <VerifyButton onVerified={handleVerified} />
 
             <p className="text-[11px] text-gray-400">
-              Only Orb-verified humans can trade. Your identity remains private.
+              Verified humans only. Take a quick selfie in World App — no Orb needed.
             </p>
           </div>
         )}

@@ -1,6 +1,6 @@
 'use client'
 
-import { IDKit, orbLegacy } from '@worldcoin/idkit-core'
+import { IDKit, selfieCheckLegacy } from '@worldcoin/idkit-core'
 import { MiniKit } from '@worldcoin/minikit-js'
 import { useState } from 'react'
 
@@ -48,28 +48,25 @@ export function VerifyButton({ onVerified }: VerifyButtonProps) {
         return
       }
 
-      // Step 3: IDKit + orbLegacy — World ID 4.0 correct path
-      // Inside World App this runs headlessly (no QR/widget shown)
+      // Step 3: IDKit + selfieCheckLegacy — no Orb needed, just a selfie in World App
       const request = await IDKit.request({
         app_id: APP_ID,
         action: ACTION,
         rp_context: rpContext,
         allow_legacy_proofs: true,
         environment: 'production',
-      }).preset(orbLegacy({ signal: walletAddress }))
+      }).preset(selfieCheckLegacy({ signal: walletAddress }))
 
       const completion = await request.pollUntilCompletion()
 
       if (!completion.success) {
         const code = String(completion.error ?? 'unknown')
-        if (code.includes('credential_unavailable') || code.includes('Orb')) {
-          setError(
-            'Orb verification required. Visit a Worldcoin Orb location (worldcoin.org/find-orb) to get verified, then try again.',
-          )
-        } else if (code.includes('rejected') || code.includes('cancel')) {
+        if (code.includes('rejected') || code.includes('cancel')) {
           setError('Verification cancelled. Tap Verify and confirm in World App.')
+        } else if (code.includes('credential_unavailable')) {
+          setError('Selfie Check credential unavailable. Make sure World App is up to date and try again.')
         } else {
-          setError(`World ID verification failed (${code}). Make sure you are Orb-verified.`)
+          setError(`World ID verification failed (${code}). Please try again.`)
         }
         setLoading(false)
         return
