@@ -74,7 +74,18 @@ async function main() {
   console.log(`✅ OTCSettlement deployed to: ${otcSettlementAddress}\n`);
 
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  console.log("3️⃣  Deploying ProofVerifier...");
+  console.log("3️⃣  Deploying BalanceVerifier (Groth16 ZK verifier)...");
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+  const BalanceVerifier = await hre.ethers.getContractFactory("Groth16Verifier");
+  const balanceVerifier = await BalanceVerifier.deploy();
+  await balanceVerifier.waitForDeployment();
+  const balanceVerifierAddress = await balanceVerifier.getAddress();
+
+  console.log(`✅ BalanceVerifier (Groth16) deployed to: ${balanceVerifierAddress}\n`);
+
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  console.log("4️⃣  Deploying ProofVerifier (World ID)...");
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
   
   const ProofVerifier = await hre.ethers.getContractFactory("ProofVerifier");
@@ -89,7 +100,7 @@ async function main() {
   console.log(`✅ ProofVerifier deployed to: ${proofVerifierAddress}\n`);
 
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  console.log("4️⃣  Configuring contracts...");
+  console.log("5️⃣  Configuring contracts...");
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
   // Set settlement contract in escrow vault
@@ -105,6 +116,12 @@ async function main() {
   console.log("✅ CRE executor configured (temporary: deployer address)");
   console.log("⚠️  Remember to update CRE executor to actual CRE service address!\n");
 
+  // Wire BalanceVerifier into OTCSettlement — ZK proof now enforced on-chain
+  console.log("🔧 Wiring BalanceVerifier into OTCSettlement...");
+  const tx3 = await otcSettlement.setBalanceVerifier(balanceVerifierAddress);
+  await tx3.wait();
+  console.log("✅ ZK balance verifier configured — settlement now requires on-chain Groth16 proof\n");
+
   // Save deployment info
   const deploymentInfo = {
     network: network,
@@ -113,6 +130,7 @@ async function main() {
     contracts: {
       EscrowVault: escrowVaultAddress,
       OTCSettlement: otcSettlementAddress,
+      BalanceVerifier: balanceVerifierAddress,
       ProofVerifier: proofVerifierAddress,
     },
     configuration: {

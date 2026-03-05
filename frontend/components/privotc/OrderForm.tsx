@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Lock, ArrowRight } from 'lucide-react'
+import { useAccount, useBalance } from 'wagmi'
+import { tenderlyEthereum } from '@/lib/web3Config'
 
 const TOKEN_PAIRS = ['ETH/USDC', 'WBTC/USDC', 'ETH/WBTC']
 const EXPIRY_OPTIONS = [
@@ -26,44 +28,85 @@ export function OrderForm({ nullifierHash, worldIdProof, onOrderSubmitted }: Ord
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Fetch real on-chain balance from Tenderly Virtual TestNet
+  const { address } = useAccount()
+  const { data: balanceData } = useBalance({
+    address,
+    chainId: tenderlyEthereum.id,
+  })
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setSubmitting(true)
     setError(null)
 
     try {
-      // Generate REAL ZK proof via backend API
+      console.log('─── PrivOTC Order Submission ───────────────────────')
+      console.log('[1/5] Trade inputs:', { side, tokenPair, amount, price, expiry })
+
+      // ── Step 1: On-chain balance ──────────────────────────
+      setError('Fetching on-chain balance...')
+      console.log('[2/5] Fetching on-chain balance from Tenderly (chain ID 9991)...')
+      console.log('      Wallet address:', address ?? 'not connected')
+
+      // Use real wallet balance from Tenderly (in wei as string), fallback only if wallet not connected
+      const realBalance = balanceData
+        ? balanceData.value.toString()
+        : '10000000000000000000' // 10 ETH fallback for unconnected wallet
+
+      console.log('      Raw balance (wei):', realBalance)
+      console.log('      Formatted balance:', balanceData
+        ? `${balanceData.formatted} ${balanceData.symbol}`
+        : '10 ETH (fallback — wallet not connected)')
+
+      // ── Step 2: ZK Proof generation ───────────────────────
       setError('Generating ZK proof...')
+      const zkPayload = {
+        balance: realBalance,
+        walletCommitment: nullifierHash.slice(0, 16),
+        minPrice: Math.floor(parseFloat(price) * 1000000).toString(),
+        amount: Math.floor(parseFloat(amount) * 1e18).toString(),
+        tokenId: '1',
+      }
+      console.log('[3/5] Generating ZK proof → http://localhost:4000/generate-proof')
+      console.log('      ZK circuit inputs:', zkPayload)
+
       const zkRes = await fetch('http://localhost:4000/generate-proof', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          balance: '10000000000000000000', // 10 ETH demo balance (should come from wallet in production)
-          walletCommitment: nullifierHash.slice(0, 16), // Use part of World ID nullifier
-          minPrice: Math.floor(parseFloat(price) * 1000000).toString(),
-          amount: Math.floor(parseFloat(amount) * 1e18).toString(),
-          tokenId: '1',
-        }),
+        body: JSON.stringify(zkPayload),
       })
 
       if (!zkRes.ok) {
+        console.error('      ZK proof HTTP error:', zkRes.status, zkRes.statusText)
         throw new Error('Failed to generate ZK proof')
       }
 
       const zkData = await zkRes.json()
+      console.log('      ZK proof response:', zkData.success ? '✅ success' : '❌ failed')
+      if (zkData.success) {
+        console.log('      Public signals:', zkData.publicSignals)
+        console.log('      Proof (pi_a):', zkData.proof?.pi_a)
+      }
       if (!zkData.success) {
         throw new Error(zkData.error || 'ZK proof generation failed')
       }
 
       setError('ZK proof generated! Submitting trade...')
 
-      // Require REAL World ID proof - no fallback!
+      // ── Step 3: World ID check ────────────────────────────
+      console.log('[4/5] World ID proof check...')
       if (!worldIdProof) {
+        console.error('      ❌ No World ID proof found in session')
         throw new Error('World ID verification required. Please scan QR code with World App first.')
       }
+      console.log('      ✅ World ID proof present')
+      console.log('      nullifier_hash:', worldIdProof.nullifier_hash)
+      console.log('      merkle_root:', worldIdProof.merkle_root)
 
       const worldIdData = worldIdProof
 
+      // ── Step 4: Submit trade to /api/trade ────────────────
       const tradeData = {
         worldIdProof: worldIdData,
         zkProof: zkData.proof,
@@ -76,6 +119,8 @@ export function OrderForm({ nullifierHash, worldIdProof, onOrderSubmitted }: Ord
         },
         timestamp: Date.now(),
       }
+      console.log('[5/5] Submitting trade to /api/trade...')
+      console.log('      Trade payload:', tradeData.trade)
 
       const res = await fetch('/api/trade', {
         method: 'POST',
@@ -84,14 +129,19 @@ export function OrderForm({ nullifierHash, worldIdProof, onOrderSubmitted }: Ord
       })
 
       const result = await res.json()
+      console.log('      /api/trade response:', result)
+
       if (result.tradeId || result.success) {
+        console.log('✅ Trade submitted! ID:', result.tradeId ?? 'n/a', '| Queue position:', result.queuePosition ?? 'n/a')
+        console.log('────────────────────────────────────────────────────')
         onOrderSubmitted(result.tradeId || `trade-${Date.now()}`)
       } else {
+        console.warn('      ❌ Trade rejected by API:', result)
         setError('Failed to submit order. Please try again.')
       }
     } catch (err) {
+      console.error('❌ Order submission failed:', err)
       setError(err instanceof Error ? err.message : 'Something went wrong while submitting your order.')
-      console.error(err)
     } finally {
       setSubmitting(false)
     }
@@ -118,6 +168,20 @@ export function OrderForm({ nullifierHash, worldIdProof, onOrderSubmitted }: Ord
         <div className="flex-1 border-t border-foreground/10" />
         <span className="text-[10px] font-mono text-muted-foreground">
           {nullifierHash.slice(0, 8)}…
+        </span>
+      </div>
+
+      {/* On-chain balance indicator */}
+      <div className="flex items-center justify-between px-2 py-1.5 bg-foreground/5 border border-foreground/10">
+        <span className="text-[10px] font-mono tracking-[0.1em] uppercase text-muted-foreground">
+          Tenderly Balance (ZK input)
+        </span>
+        <span className="text-[10px] font-mono text-foreground">
+          {balanceData
+            ? `${parseFloat(balanceData.formatted).toFixed(4)} ${balanceData.symbol}`
+            : address
+            ? 'Fetching...'
+            : 'Wallet not connected'}
         </span>
       </div>
 

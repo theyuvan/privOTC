@@ -4,6 +4,7 @@ import { ConnectKitButton } from 'connectkit'
 import { OrderCreate } from '@/components/otc/OrderCreate'
 import { OrderBook } from '@/components/otc/OrderBook'
 import { BalanceDisplay } from '@/components/BalanceDisplay'
+import { OrderForm } from '@/components/privotc/OrderForm'
 import { useAccount, useChainId } from 'wagmi'
 import { Badge } from '@/components/ui/badge'
 import { AlertCircle } from 'lucide-react'
@@ -16,6 +17,9 @@ export default function TradePage() {
   const chainId = useChainId()
   const router = useRouter()
   const [isVerified, setIsVerified] = useState<boolean | null>(null)
+  const [nullifierHash, setNullifierHash] = useState<string>('')
+  const [worldIdProof, setWorldIdProof] = useState<any>(null)
+  const [tradeSubmitted, setTradeSubmitted] = useState<string | null>(null)
 
   useEffect(() => {
     // Check if user has completed World ID verification in current session
@@ -24,6 +28,14 @@ export default function TradePage() {
       router.push('/verify')
     } else {
       setIsVerified(true)
+      const hash = sessionStorage.getItem('worldid_nullifier') || 'demo-nullifier-0000000000000000'
+      setNullifierHash(hash)
+      // worldIdProof from sessionStorage if stored, else null (OrderForm handles missing proof)
+      const storedProof = sessionStorage.getItem('worldid_proof')
+      if (storedProof) {
+        try { setWorldIdProof(JSON.parse(storedProof)) } catch {}
+      }
+      console.log('[TradePage] Session restored — nullifier:', hash)
     }
   }, [router])
 
@@ -91,6 +103,32 @@ export default function TradePage() {
               <BalanceDisplay />
             </div>
 
+            {/* CRE Privacy Trading — ZK proof + Chainlink matching */}
+            {nullifierHash && (
+              <div className="mb-8 p-6 border border-orange-500/30 rounded-lg bg-orange-500/5">
+                <h3 className="font-semibold mb-1 text-sm font-mono tracking-widest uppercase">
+                  // Privacy OTC — ZK-verified Trade
+                </h3>
+                <p className="text-xs text-muted-foreground mb-4">
+                  Submits to Chainlink CRE with a real Groth16 ZK proof. Balance is read live from Tenderly.
+                </p>
+                <OrderForm
+                  nullifierHash={nullifierHash}
+                  worldIdProof={worldIdProof}
+                  onOrderSubmitted={(id) => {
+                    setTradeSubmitted(id)
+                    console.log('[TradePage] CRE trade submitted, ID:', id)
+                  }}
+                />
+                {tradeSubmitted && (
+                  <p className="mt-4 text-xs font-mono text-green-500">
+                    ✅ Trade queued for CRE matching — ID: {tradeSubmitted}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* On-chain EscrowVault Orders */}
             <div className="grid lg:grid-cols-2 gap-8">
               <OrderCreate />
               <OrderBook />

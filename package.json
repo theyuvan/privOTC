@@ -23,5 +23,10 @@
     "confidential-compute"
   ],
   "author": "PrivOTC Team",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "ci-info": "^4.4.0",
+    "io-ts": "^2.2.22",
+    "solc": "^0.8.24"
+  }
 }

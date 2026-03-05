@@ -18,10 +18,13 @@ export default function VerifyPage() {
     localStorage.removeItem('worldid_nullifier')
   }, [])
 
-  const handleVerified = (nullifierHash: string) => {
+  const handleVerified = (nullifierHash: string, proof?: any) => {
     // Store verification for current session only
     sessionStorage.setItem('worldid_verified', 'true')
     sessionStorage.setItem('worldid_nullifier', nullifierHash)
+    if (proof) sessionStorage.setItem('worldid_proof', JSON.stringify(proof))
+    console.log('[Verify] World ID verified — nullifier:', nullifierHash)
+    console.log('[Verify] Full proof stored in sessionStorage:', proof)
     setIsVerified(true)
     
     // Redirect to trade page after 2 seconds
