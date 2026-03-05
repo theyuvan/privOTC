@@ -1,0 +1,16 @@
+{
+  "network": "tenderly-world-chain",
+  "timestamp": "2026-03-05T03:28:42.993Z",
+  "deployer": "0xFefa60F5aA4069F96b9Bf65c814DDb3A604974e1",
+  "contracts": {
+    "EscrowVault": "0x8fC5337902A1EF5e699B2C19f1EBe892E5DBf294",
+    "OTCSettlement": "0x615807920BEA0751AbE4682f18b55C0e1BaA0112",
+    "ProofVerifier": "0x73416Bc510C031708558F4f8796214A29e2FFdb7"
+  },
+  "configuration": {
+    "worldIdRouter": "0x57f928158C3EE7CDad1e4D8642503c4D0201f611",
+    "appId": "app_356707253a6f729610327063d51fe46e",
+    "actionId": "verify-otc-trader",
+    "creExecutor": "0xFefa60F5aA4069F96b9Bf65c814DDb3A604974e1"
+  }
+}
