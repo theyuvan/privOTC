@@ -1,8 +1,8 @@
 {
   "schedule": "*/30 * * * * *",
+  "simulationMode": true,
   "worldIdAppId": "app_staging_356707253a6f729610327063d51fe46e",
   "worldIdAction": "submit_trade",
-  "zkVerificationKeyPath": "../../zk-circuits/build/verification_key.json",
   "otcSettlementAddress": "0x0000000000000000000000000000000000000000",
   "proofVerifierAddress": "0x0000000000000000000000000000000000000000",
   "tokenPairs": ["ETH/USDC", "WBTC/USDC", "WETH/DAI"],

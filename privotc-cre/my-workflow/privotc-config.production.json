@@ -1,0 +1,20 @@
+{
+  "schedule": "*/30 * * * * *",
+  "simulationMode": false,
+  "worldIdAppId": "app_staging_356707253a6f729610327063d51fe46e",
+  "worldIdAction": "submit_trade",
+  "otcSettlementAddress": "TO_BE_PROVIDED_BY_DEV1",
+  "proofVerifierAddress": "TO_BE_PROVIDED_BY_DEV1",
+  "tokenPairs": ["ETH/USDC", "WBTC/USDC", "WETH/DAI"],
+  "chainName": "ethereum-testnet-sepolia",
+  "tokenContracts": {
+    "WETH": "TO_BE_PROVIDED_BY_DEV1",
+    "USDC": "TO_BE_PROVIDED_BY_DEV1",
+    "DAI": "TO_BE_PROVIDED_BY_DEV1",
+    "WBTC": "TO_BE_PROVIDED_BY_DEV1"
+  },
+  "rpcUrls": {
+    "sepolia": "TO_BE_PROVIDED_BY_DEV1_OR_USE_PUBLIC_RPC",
+    "tenderlyFork": "TO_BE_PROVIDED_BY_DEV1_IF_USING_TENDERLY"
+  }
+}

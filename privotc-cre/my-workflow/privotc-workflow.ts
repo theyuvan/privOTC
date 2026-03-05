@@ -23,9 +23,6 @@ import {
 } from '@chainlink/cre-sdk';
 import { type Address, encodeFunctionData, Hex, zeroAddress } from 'viem';
 import { z } from 'zod';
-import { groth16 } from 'snarkjs';
-import * as fs from 'fs';
-import * as path from 'path';
 
 // ===== Configuration Schema =====
 
@@ -33,11 +30,11 @@ const configSchema = z.object({
 	schedule: z.string(), // Cron schedule for matching engine
 	worldIdAppId: z.string(),
 	worldIdAction: z.string(),
-	zkVerificationKeyPath: z.string(),
 	otcSettlementAddress: z.string(),
 	proofVerifierAddress: z.string(),
 	tokenPairs: z.array(z.string()), // e.g., ["ETH/USDC", "WBTC/USDC"]
 	chainName: z.string(), // e.g., "ethereum-testnet-sepolia"
+	simulationMode: z.boolean().optional(), // Skip actual ZK verification in simulation
 });
 
 type Config = z.infer<typeof configSchema>;
@@ -168,6 +165,69 @@ class ConfidentialOrderbook {
 // Global orderbook instance (persists in TEE memory)
 const orderbook = new ConfidentialOrderbook();
 
+// Flag to track if demo data has been loaded
+let demoDataLoaded = false;
+
+// Pre-populate orderbook with demo trades for simulation ONLY
+function loadDemoTrades(runtime: Runtime<Config>): void {
+	if (demoDataLoaded) return;
+	if (!runtime.config.simulationMode) {
+		runtime.log('⚠️  Production mode: Skipping demo trades (real trades come via HTTP)');
+		return;
+	}
+	
+	runtime.log('📦 Loading demo trades for simulation...');
+	
+	const baseTimestamp = Date.now();
+	
+	// ETH/USDC Demo Orders
+	const ethUsdcOrders = [
+		{ side: 'buy' as const, amount: '1.5', price: '3200.00', nullifier: 'demo_buyer_1' },
+		{ side: 'buy' as const, amount: '2.0', price: '3195.00', nullifier: 'demo_buyer_2' },
+		{ side: 'sell' as const, amount: '1.8', price: '3198.00', nullifier: 'demo_seller_1' },
+		{ side: 'sell' as const, amount: '1.2', price: '3202.00', nullifier: 'demo_seller_2' },
+	];
+	
+	// WBTC/USDC Demo Orders
+	const wbtcUsdcOrders = [
+		{ side: 'buy' as const, amount: '0.5', price: '65000.00', nullifier: 'demo_buyer_3' },
+		{ side: 'sell' as const, amount: '0.3', price: '64900.00', nullifier: 'demo_seller_3' },
+	];
+	
+	// Add ETH/USDC orders
+	ethUsdcOrders.forEach((order, idx) => {
+		const intent: TradeIntent = {
+			id: `demo_eth_${idx}`,
+			tokenPair: 'ETH/USDC',
+			side: order.side,
+			walletCommitment: `0x${Math.random().toString(16).slice(2, 66)}`,
+			amount: order.amount,
+			price: order.price,
+			timestamp: baseTimestamp + idx * 1000,
+			worldIdNullifier: order.nullifier,
+		};
+		orderbook.addIntent(intent);
+	});
+	
+	// Add WBTC/USDC orders
+	wbtcUsdcOrders.forEach((order, idx) => {
+		const intent: TradeIntent = {
+			id: `demo_wbtc_${idx}`,
+			tokenPair: 'WBTC/USDC',
+			side: order.side,
+			walletCommitment: `0x${Math.random().toString(16).slice(2, 66)}`,
+			amount: order.amount,
+			price: order.price,
+			timestamp: baseTimestamp + idx * 1000,
+			worldIdNullifier: order.nullifier,
+		};
+		orderbook.addIntent(intent);
+	});
+	
+	demoDataLoaded = true;
+	runtime.log('✅ Demo trades loaded: 4 ETH/USDC orders, 2 WBTC/USDC orders');
+}
+
 // ===== Validation Functions =====
 
 async function validateWorldId(
@@ -207,29 +267,29 @@ async function validateZKProof(
 ): Promise<{ success: boolean; walletCommitment?: string; proofHash?: string; reason?: string }> {
 	try {
 		const config = runtime.config;
-		const vkPath = config.zkVerificationKeyPath;
 		
-		if (!fs.existsSync(vkPath)) {
-			return { success: false, reason: 'ZK verification key not found' };
+		// Simulation mode: skip actual ZK verification
+		if (config.simulationMode) {
+			runtime.log('⚠️  Simulation mode: Skipping ZK verification');
+			
+			// Return mock successful verification using provided public signals or defaults
+			return {
+				success: true,
+				walletCommitment: zkProof.publicSignals?.[1] || 'simulated_wallet_commitment',
+				proofHash: zkProof.publicSignals?.[2] || 'simulated_proof_hash',
+			};
 		}
 
-		const verificationKey = JSON.parse(fs.readFileSync(vkPath, 'utf-8'));
-		const isValid = await groth16.verify(verificationKey, zkProof.publicSignals, zkProof.proof);
-
-		if (!isValid) {
-			return { success: false, reason: 'Invalid ZK proof' };
-		}
-
-		// Extract outputs: [balanceSufficient, walletCommitment, proofHash, requiredAmount, timestamp]
-		const balanceSufficient = zkProof.publicSignals[0] === '1';
-		if (!balanceSufficient) {
-			return { success: false, reason: 'Insufficient balance (proven via ZK)' };
-		}
-
-		return {
-			success: true,
-			walletCommitment: zkProof.publicSignals[1],
-			proofHash: zkProof.publicSignals[2],
+		// Production mode: ZK verification would require verification key
+		// In production, the verification key must be:
+		// 1. Embedded directly in the config as JSON, OR
+		// 2. Fetched from a public URL via HTTP
+		// File system access (fs.readFileSync) is NOT available in CRE WASM environment
+		
+		runtime.log('❌ Production ZK verification not yet implemented (requires embedded verification key)');
+		return { 
+			success: false, 
+			reason: 'Production ZK verification requires verification key embedded in config or fetched via HTTP' 
 		};
 	} catch (error: any) {
 		return { success: false, reason: `ZK verification error: ${error.message}` };
@@ -240,15 +300,17 @@ async function validateZKProof(
 
 /**
  * HTTP Handler: Trade Intake
- * Receives trade intents, validates World ID + ZK proofs, adds to orderbook
+ * Receives trade intents from frontend (PRODUCTION MODE)
  */
 const handleTradeIntake = async (
 	runtime: Runtime<Config>,
 	payload: any
 ): Promise<any> => {
-	runtime.log('🔍 Processing trade intake...');
+	runtime.log('🔍 Processing trade intake (PRODUCTION)...');
 
-	const { worldIdProof, zkProof, trade } = payload as {
+	// Parse HTTP request body
+	const requestBody = typeof payload === 'string' ? JSON.parse(payload) : payload;
+	const { worldIdProof, zkProof, trade } = requestBody as {
 		worldIdProof: WorldIDProof;
 		zkProof: ZKProof;
 		trade: { side: 'buy' | 'sell'; tokenPair: string; amount: string; price: string };
@@ -311,7 +373,13 @@ const handleTradeIntake = async (
  * Runs every N seconds, finds matching buy/sell orders
  */
 const handleMatchingEngine = (runtime: Runtime<Config>, payload: CronPayload): string => {
-	runtime.log('🎯 Running matching engine...');
+	const mode = runtime.config.simulationMode ? 'SIMULATION' : 'PRODUCTION';
+	runtime.log(`🎯 Running matching engine (${mode})...`);
+
+	// Load demo trades ONLY in simulation mode (runs once)
+	if (runtime.config.simulationMode) {
+		loadDemoTrades(runtime);
+	}
 
 	const config = runtime.config;
 	const tokenPairs = config.tokenPairs;
@@ -393,24 +461,30 @@ const initWorkflow = (config: Config) => {
 	const http = new cre.capabilities.HTTPCapability();
 	const cron = new cre.capabilities.CronCapability();
 
-	return [
-		// HTTP endpoint for trade intake
-		cre.handler(
-			http.trigger({
-				path: '/trade-intake',
-				method: 'POST',
-			}),
-			handleTradeIntake,
-		),
+	const handlers = [];
 
-		// Cron job for matching engine
+	// HTTP endpoint for trade intake (PRODUCTION)
+	// Note: HTTP triggers work in deployment, may have issues in local simulation
+	if (!config.simulationMode) {
+		handlers.push(
+			cre.handler(
+				http.trigger(),
+				handleTradeIntake,
+			)
+		);
+	}
+
+	// Cron job for matching engine (BOTH simulation and production)
+	handlers.push(
 		cre.handler(
 			cron.trigger({
 				schedule: config.schedule,
 			}),
 			handleMatchingEngine,
-		),
-	];
+		)
+	);
+
+	return handlers;
 };
 
 export async function main() {
