@@ -5,17 +5,23 @@ import { NextRequest, NextResponse } from 'next/server'
 const pendingTrades: any[] = []
 
 // GET /api/trade - For CRE to pull pending trades
+// Add ?drain=true to consume the queue; without it, just peek
 export async function GET(req: NextRequest) {
   if (pendingTrades.length === 0) {
     console.log('🔵 CRE requested trade data - No pending trades')
     return NextResponse.json({ trades: [] })
   }
 
-  // Return ALL pending trades and clear the queue
+  const drain = req.nextUrl.searchParams.get('drain') !== 'false'
+
+  // Return ALL pending trades and clear the queue only if draining
   const trades = [...pendingTrades]
-  pendingTrades.length = 0 // Clear array
-  
-  console.log(`🔵 CRE pulled ${trades.length} trades`)
+  if (drain) {
+    pendingTrades.length = 0 // Clear array
+    console.log(`🔵 CRE pulled (drain) ${trades.length} trades`)
+  } else {
+    console.log(`🔵 Peek (no drain): ${trades.length} trades in queue`)
+  }
   trades.forEach(t => console.log(`   - ${t.trade.side} ${t.trade.amount} ${t.trade.tokenPair} @ ${t.trade.price}`))
   
   return NextResponse.json({ trades })
@@ -32,6 +38,16 @@ export async function POST(req: NextRequest) {
       body.timestamp = Date.now()
     }
 
+    // Validate token pair
+    const ALLOWED_PAIRS = ['ETH/WLD']
+    if (!body.trade?.tokenPair || !ALLOWED_PAIRS.includes(body.trade.tokenPair)) {
+      console.error('❌ Trade rejected: Invalid token pair:', body.trade?.tokenPair)
+      return NextResponse.json({
+        success: false,
+        error: `Invalid token pair. Allowed: ${ALLOWED_PAIRS.join(', ')}`
+      }, { status: 400 })
+    }
+
     // Validate REAL proofs exist - no fallbacks!
     if (!body.zkProof || !body.publicSignals || body.publicSignals.length === 0) {
       console.error('❌ Trade rejected: Missing ZK proof')
@@ -41,8 +57,8 @@ export async function POST(req: NextRequest) {
       }, { status: 400 })
     }
 
-    if (!body.worldIdProof || !body.worldIdProof.nullifier_hash || !body.worldIdProof.merkle_root) {
-      console.error('❌ Trade rejected: Missing or invalid World ID proof')
+    if (!body.worldIdProof || typeof body.worldIdProof !== 'object') {
+      console.error('❌ Trade rejected: Missing World ID proof object')
       return NextResponse.json({ 
         success: false, 
         error: 'World ID verification required. Please verify with World App.' 
@@ -56,6 +72,8 @@ export async function POST(req: NextRequest) {
         proof: body.zkProof,
         publicSignals: body.publicSignals,
       },
+      walletAddress: body.walletAddress ?? null,   // actual wallet address for on-chain settle()
+      onChainTxHash: body.onChainTxHash ?? null,   // submitBalanceProof tx hash
       trade: body.trade,
       timestamp: body.timestamp,
     }
@@ -64,6 +82,8 @@ export async function POST(req: NextRequest) {
     pendingTrades.push(tradeData)
     console.log(`✅ Trade queued: ${body.trade.side} ${body.trade.amount} ${body.trade.tokenPair} @ ${body.trade.price}`)
     console.log(`   Queue size: ${pendingTrades.length}`)
+    console.log(`   Wallet address: ${body.walletAddress ?? 'not set'}`)
+    console.log(`   On-chain ZK tx: ${body.onChainTxHash ?? '(simulation — no tx)'}`)
     console.log(`   ZK proof type: ${body.zkProof ? 'REAL (Groth16)' : 'MOCK'}`)
     
     return NextResponse.json({ 

@@ -1,16 +1,16 @@
 'use client'
 
 import { ConnectKitButton } from 'connectkit'
-import { OrderCreate } from '@/components/otc/OrderCreate'
-import { OrderBook } from '@/components/otc/OrderBook'
 import { BalanceDisplay } from '@/components/BalanceDisplay'
 import { OrderForm } from '@/components/privotc/OrderForm'
+import { EscrowDeposit } from '@/components/privotc/EscrowDeposit'
 import { useAccount, useChainId } from 'wagmi'
 import { Badge } from '@/components/ui/badge'
 import { AlertCircle } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import type { Match } from '@/app/api/matches/route'
 
 export default function TradePage() {
   const { isConnected, address } = useAccount()
@@ -20,6 +20,7 @@ export default function TradePage() {
   const [nullifierHash, setNullifierHash] = useState<string>('')
   const [worldIdProof, setWorldIdProof] = useState<any>(null)
   const [tradeSubmitted, setTradeSubmitted] = useState<string | null>(null)
+  const [activeMatch, setActiveMatch] = useState<Match | null>(null)
 
   useEffect(() => {
     // Check if user has completed World ID verification in current session
@@ -38,6 +39,28 @@ export default function TradePage() {
       console.log('[TradePage] Session restored — nullifier:', hash)
     }
   }, [router])
+
+  // Poll /api/matches every 5 s after a trade is submitted
+  const pollMatches = useCallback(async () => {
+    if (!address) return
+    try {
+      const res = await fetch(`/api/matches?wallet=${address}`)
+      const data = await res.json()
+      if (data.matches?.length > 0) {
+        setActiveMatch(data.matches[0])
+      }
+    } catch {
+      // silently retry
+    }
+  }, [address])
+
+  useEffect(() => {
+    if (!tradeSubmitted || !address) return
+    // Start polling immediately then every 5 s
+    pollMatches()
+    const id = setInterval(pollMatches, 5000)
+    return () => clearInterval(id)
+  }, [tradeSubmitted, address, pollMatches])
 
   // Show loading while checking verification
   if (isVerified === null) {
@@ -120,19 +143,28 @@ export default function TradePage() {
                     console.log('[TradePage] CRE trade submitted, ID:', id)
                   }}
                 />
-                {tradeSubmitted && (
+                {tradeSubmitted && !activeMatch && (
                   <p className="mt-4 text-xs font-mono text-green-500">
                     ✅ Trade queued for CRE matching — ID: {tradeSubmitted}
+                    <span className="ml-2 text-muted-foreground animate-pulse">(polling for match…)</span>
                   </p>
                 )}
               </div>
             )}
 
-            {/* On-chain EscrowVault Orders */}
-            <div className="grid lg:grid-cols-2 gap-8">
-              <OrderCreate />
-              <OrderBook />
-            </div>
+            {/* Escrow flow — shown when CRE finds a match */}
+            {activeMatch && (
+              <div className="mb-8">
+                <EscrowDeposit
+                  match={activeMatch}
+                  onSettled={() => {
+                    console.log('[TradePage] Trade settled!')
+                    setActiveMatch(null)
+                    setTradeSubmitted(null)
+                  }}
+                />
+              </div>
+            )}
 
             <div className="mt-8 p-6 border rounded-lg bg-muted/50">
               <h3 className="font-semibold mb-2">How It Works</h3>

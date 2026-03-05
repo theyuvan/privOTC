@@ -7,7 +7,9 @@
 export interface TradeIntent {
   id: string;
   walletCommitment: string;  // From ZK proof
+  walletAddress: string;     // Actual wallet address — needed by CRE to call settle(buyer, seller)
   proofHash: string;         // From ZK proof
+  onChainTxHash?: string;    // submitBalanceProof tx hash (on-chain ZK verification receipt)
   side: 'buy' | 'sell';
   tokenPair: string;         // e.g., "ETH/USDC"
   amount: string;

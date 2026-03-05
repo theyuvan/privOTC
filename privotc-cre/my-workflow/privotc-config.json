@@ -6,7 +6,7 @@
   "otcSettlementAddress": "0x7f8e2f2685c84aECA45CF6d6bfb1663781B9813A",
   "proofVerifierAddress": "0x8fC5337902A1EF5e699B2C19f1EBe892E5DBf294",
   "balanceVerifierAddress": "0x3c856Ae297081f34839468396ec735A3EB4fBba8",
-  "tokenPairs": ["ETH/USDC", "WBTC/USDC", "WETH/DAI"],
+  "tokenPairs": ["ETH/WLD"],
   "chainName": "ethereum-testnet-sepolia",
   "chainId": "9991",
   "tenderlyRpcUrl": "https://virtual.mainnet.eu.rpc.tenderly.co/fc856d53-a35a-4d03-8a54-ad1f88e48a6b",

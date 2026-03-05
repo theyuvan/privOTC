@@ -101,6 +101,10 @@ async function triggerSettlement(match: MatchedPair): Promise<void> {
   const settlementData = {
     buyerCommitment: match.buyOrder.walletCommitment,
     sellerCommitment: match.sellOrder.walletCommitment,
+    buyerAddress: match.buyOrder.walletAddress,
+    sellerAddress: match.sellOrder.walletAddress,
+    buyerOnChainTxHash: match.buyOrder.onChainTxHash,
+    sellerOnChainTxHash: match.sellOrder.onChainTxHash,
     tokenPair: match.buyOrder.tokenPair,
     amount: match.matchAmount,
     price: match.matchPrice,
@@ -110,6 +114,8 @@ async function triggerSettlement(match: MatchedPair): Promise<void> {
   };
 
   console.log('   Settlement data prepared:', settlementData);
+  console.log('   Buyer on-chain ZK tx:', match.buyOrder.onChainTxHash ?? '(simulation)');
+  console.log('   Seller on-chain ZK tx:', match.sellOrder.onChainTxHash ?? '(simulation)');
   
   // In production:
   // await fetch('{{.CRE_SETTLEMENT_ENDPOINT}}', {

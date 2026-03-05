@@ -20,6 +20,12 @@ export interface TradeIntakeRequest {
   
   // ZK balance proof
   zkProof: BalanceProofData;
+
+  // Wallet address — used by CRE to call settle(buyer, seller, ...) on-chain
+  walletAddress?: string;
+
+  // On-chain tx hash from submitBalanceProof() — proves Groth16 ran on-chain
+  onChainTxHash?: string;
   
   // Trade details (can be encrypted in production)
   trade: {
@@ -114,7 +120,9 @@ export async function handleTradeIntake(
   const intent: TradeIntent = {
     id: zkResult.proofHash, // Unique ID from ZK proof
     walletCommitment: zkResult.walletCommitment,
+    walletAddress: request.walletAddress ?? '',  // actual address for on-chain settle()
     proofHash: zkResult.proofHash,
+    onChainTxHash: request.onChainTxHash,        // submitBalanceProof receipt
     side: request.trade.side,
     tokenPair: request.trade.tokenPair,
     amount: request.trade.amount,
@@ -134,6 +142,8 @@ export async function handleTradeIntake(
   }
 
   console.log('✅ Trade intent added to orderbook');
+  console.log(`   Wallet: ${request.walletAddress ?? 'not provided'}`);
+  console.log(`   On-chain ZK tx: ${request.onChainTxHash ?? '(simulation — no tx)'}`) ;
 
   // ===== STEP 4: Trigger Matching Engine =====
   // In production, this would trigger Workflow 2 (matching-engine.ts)

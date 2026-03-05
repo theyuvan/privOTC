@@ -1,6 +1,7 @@
 {
   "name": "privotc-zk-circuits",
   "version": "1.0.0",
+  "type": "module",
   "description": "Zero-Knowledge proof circuits for PrivOTC balance verification",
   "scripts": {
     "compile": "bash scripts/compile.sh",

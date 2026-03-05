@@ -14,6 +14,10 @@ import { ethers } from 'ethers';
 export interface SettlementRequest {
   buyerCommitment: string;
   sellerCommitment: string;
+  buyerAddress: string;   // actual wallet address for settle(buyer, ...)
+  sellerAddress: string;  // actual wallet address for settle(..., seller, ...)
+  buyerOnChainTxHash?: string;  // submitBalanceProof tx from buyer
+  sellerOnChainTxHash?: string; // submitBalanceProof tx from seller
   tokenPair: string;
   amount: string;
   price: string;
@@ -90,9 +94,12 @@ export async function handleSettlement(
     // ===== STEP 3: Execute Settlement =====
     console.log('3️⃣  Executing settlement on-chain...');
 
-    // OTCSettlement ABI (from Dev 1's contract)
+    // OTCSettlement ABI — matches deployed OTCSettlement.sol (updated with ZK enforcement)
+    // settle(bytes32 tradeId, address buyer, address seller,
+    //        address buyerToken, address sellerToken,
+    //        uint256 buyerAmount, uint256 sellerAmount)
     const settlementABI = [
-      'function settle(address baseToken, address quoteToken, uint256 amount, uint256 price, bytes32 buyerProof, bytes32 sellerProof) external returns (uint256 tradeId)'
+      'function settle(bytes32 tradeId, address buyer, address seller, address buyerToken, address sellerToken, uint256 buyerAmount, uint256 sellerAmount) external'
     ];
 
     const otcSettlement = new ethers.Contract(
@@ -101,17 +108,30 @@ export async function handleSettlement(
       wallet
     );
 
-    // TODO: Get actual token addresses (from Dev 1)
     const baseTokenAddress = getTokenAddress(baseToken);
     const quoteTokenAddress = getTokenAddress(quoteToken);
 
+    // tradeId: deterministic hash from both proof hashes
+    const tradeId = ethers.keccak256(
+      ethers.solidityPacked(
+        ['bytes32', 'bytes32', 'uint256'],
+        [request.buyProofHash, request.sellProofHash, BigInt(request.timestamp)]
+      )
+    );
+
+    console.log(`   tradeId: ${tradeId}`);
+    console.log(`   buyer:   ${request.buyerAddress}`);
+    console.log(`   seller:  ${request.sellerAddress}`);
+    console.log(`   Requires both parties to have called submitBalanceProof() on-chain first`);
+
     const settlementTx = await otcSettlement.settle(
+      tradeId,
+      request.buyerAddress,
+      request.sellerAddress,
       baseTokenAddress,
       quoteTokenAddress,
       ethers.parseEther(request.amount),
-      ethers.parseUnits(request.price, 6), // Assuming 6 decimals for price
-      request.buyProofHash,
-      request.sellProofHash
+      ethers.parseUnits(request.price, 6)
     );
 
     const receipt = await settlementTx.wait();

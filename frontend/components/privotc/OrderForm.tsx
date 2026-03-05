@@ -3,10 +3,27 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Lock, ArrowRight } from 'lucide-react'
-import { useAccount, useBalance } from 'wagmi'
+import { useAccount, useBalance, useWriteContract, usePublicClient } from 'wagmi'
 import { tenderlyEthereum } from '@/lib/web3Config'
 
-const TOKEN_PAIRS = ['ETH/USDC', 'WBTC/USDC', 'ETH/WBTC']
+const OTC_SETTLEMENT_ADDRESS = '0x7f8e2f2685c84aECA45CF6d6bfb1663781B9813A' as const
+
+const SUBMIT_PROOF_ABI = [
+  {
+    name: 'submitBalanceProof',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: '_pA', type: 'uint256[2]' },
+      { name: '_pB', type: 'uint256[2][2]' },
+      { name: '_pC', type: 'uint256[2]' },
+      { name: '_pubSignals', type: 'uint256[5]' },
+    ],
+    outputs: [],
+  },
+] as const
+
+const TOKEN_PAIRS = ['ETH/WLD']
 const EXPIRY_OPTIONS = [
   { label: '1 hour', value: '1h' },
   { label: '6 hours', value: '6h' },
@@ -21,7 +38,7 @@ interface OrderFormProps {
 
 export function OrderForm({ nullifierHash, worldIdProof, onOrderSubmitted }: OrderFormProps) {
   const [side, setSide] = useState<'buy' | 'sell'>('buy')
-  const [tokenPair, setTokenPair] = useState('ETH/USDC')
+  const [tokenPair, setTokenPair] = useState('ETH/WLD')
   const [amount, setAmount] = useState('')
   const [price, setPrice] = useState('')
   const [expiry, setExpiry] = useState('1h')
@@ -34,6 +51,8 @@ export function OrderForm({ nullifierHash, worldIdProof, onOrderSubmitted }: Ord
     address,
     chainId: tenderlyEthereum.id,
   })
+  const { writeContractAsync } = useWriteContract()
+  const publicClient = usePublicClient({ chainId: tenderlyEthereum.id })
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -42,11 +61,11 @@ export function OrderForm({ nullifierHash, worldIdProof, onOrderSubmitted }: Ord
 
     try {
       console.log('─── PrivOTC Order Submission ───────────────────────')
-      console.log('[1/5] Trade inputs:', { side, tokenPair, amount, price, expiry })
+      console.log('[1/6] Trade inputs:', { side, tokenPair, amount, price, expiry })
 
       // ── Step 1: On-chain balance ──────────────────────────
       setError('Fetching on-chain balance...')
-      console.log('[2/5] Fetching on-chain balance from Tenderly (chain ID 9991)...')
+      console.log('[2/6] Fetching on-chain balance from Tenderly (chain ID 9991)...')
       console.log('      Wallet address:', address ?? 'not connected')
 
       // Use real wallet balance from Tenderly (in wei as string), fallback only if wallet not connected
@@ -68,7 +87,7 @@ export function OrderForm({ nullifierHash, worldIdProof, onOrderSubmitted }: Ord
         amount: Math.floor(parseFloat(amount) * 1e18).toString(),
         tokenId: '1',
       }
-      console.log('[3/5] Generating ZK proof → http://localhost:4000/generate-proof')
+      console.log('[3/6] Generating ZK proof → http://localhost:4000/generate-proof')
       console.log('      ZK circuit inputs:', zkPayload)
 
       const zkRes = await fetch('http://localhost:4000/generate-proof', {
@@ -79,6 +98,15 @@ export function OrderForm({ nullifierHash, worldIdProof, onOrderSubmitted }: Ord
 
       if (!zkRes.ok) {
         console.error('      ZK proof HTTP error:', zkRes.status, zkRes.statusText)
+        // Try to read the error body for a more specific message
+        let serverError = ''
+        try { serverError = (await zkRes.json()).error ?? '' } catch {}
+        if (serverError.includes('Assert Failed') || serverError.includes('BalanceProof')) {
+          const balanceEth = (BigInt(realBalance) / BigInt(1e18)).toString()
+          throw new Error(
+            `Insufficient balance for ZK proof: your wallet has ${balanceEth} ETH but the order requires ${amount} ETH. Please enter an amount ≤ ${balanceEth}.`
+          )
+        }
         throw new Error('Failed to generate ZK proof')
       }
 
@@ -92,10 +120,73 @@ export function OrderForm({ nullifierHash, worldIdProof, onOrderSubmitted }: Ord
         throw new Error(zkData.error || 'ZK proof generation failed')
       }
 
-      setError('ZK proof generated! Submitting trade...')
+      setError('ZK proof generated! Submitting on-chain proof...')
 
-      // ── Step 3: World ID check ────────────────────────────
-      console.log('[4/5] World ID proof check...')
+      // ── Step 4: Submit ZK proof ON-CHAIN ─────────────────
+      console.log('[4/6] Submitting ZK balance proof on-chain → OTCSettlement.submitBalanceProof()')
+      console.log('      Contract:', OTC_SETTLEMENT_ADDRESS)
+      console.log('      Chain ID:', tenderlyEthereum.id)
+
+      if (!address) {
+        throw new Error('Wallet not connected — cannot submit on-chain proof')
+      }
+      if (!publicClient) {
+        throw new Error('No RPC client available for chain 9991')
+      }
+
+      // Convert snarkjs proof format → Solidity uint arrays
+      // Note: G2 points (pi_b) use reversed coordinate pairs in snarkjs output
+      const proof = zkData.proof
+      const pA: [bigint, bigint] = [
+        BigInt(proof.pi_a[0]),
+        BigInt(proof.pi_a[1]),
+      ]
+      const pB: [[bigint, bigint], [bigint, bigint]] = [
+        [BigInt(proof.pi_b[0][1]), BigInt(proof.pi_b[0][0])],
+        [BigInt(proof.pi_b[1][1]), BigInt(proof.pi_b[1][0])],
+      ]
+      const pC: [bigint, bigint] = [
+        BigInt(proof.pi_c[0]),
+        BigInt(proof.pi_c[1]),
+      ]
+      const pubSigs = zkData.publicSignals.slice(0, 5).map(BigInt) as
+        [bigint, bigint, bigint, bigint, bigint]
+
+      console.log('      pA:', pA.map(String))
+      console.log('      pB:', pB.map(r => r.map(String)))
+      console.log('      pC:', pC.map(String))
+      console.log('      pubSignals:', pubSigs.map(String))
+      console.log('      pubSig[0] balance_sufficient (must be 1):', pubSigs[0].toString())
+      console.log('      pubSig[3] required_amount:', pubSigs[3].toString())
+
+      let onChainTxHash: string | undefined
+      try {
+        const txHash = await writeContractAsync({
+          address: OTC_SETTLEMENT_ADDRESS,
+          abi: SUBMIT_PROOF_ABI,
+          functionName: 'submitBalanceProof',
+          args: [pA, pB, pC, pubSigs],
+          chainId: tenderlyEthereum.id,
+        })
+        console.log('      ⛓️  Tx sent:', txHash)
+        console.log('      Waiting for receipt on Tenderly...')
+
+        const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
+        onChainTxHash = txHash
+        console.log('      ✅ On-chain ZK proof confirmed!')
+        console.log('      Block:', receipt.blockNumber.toString())
+        console.log('      Gas used:', receipt.gasUsed.toString())
+        console.log('      Status:', receipt.status)
+        setError('On-chain ZK proof verified! Checking World ID...')
+      } catch (zkOnChainErr: any) {
+        // If wallet not available in demo / simulation mode, log and continue
+        console.warn('      ⚠️  On-chain proof tx failed (demo mode may not have signer):', zkOnChainErr?.shortMessage ?? zkOnChainErr?.message)
+        console.warn('      Continuing in simulation mode without on-chain submission.')
+        setError('ZK proof generated (simulation mode). Checking World ID...')
+      }
+
+      // ── Step 5: World ID check ────────────────────────────
+      console.log('[5/6] World ID proof check...')
       if (!worldIdProof) {
         console.error('      ❌ No World ID proof found in session')
         throw new Error('World ID verification required. Please scan QR code with World App first.')
@@ -106,11 +197,13 @@ export function OrderForm({ nullifierHash, worldIdProof, onOrderSubmitted }: Ord
 
       const worldIdData = worldIdProof
 
-      // ── Step 4: Submit trade to /api/trade ────────────────
+      // ── Step 6: Submit trade to /api/trade ────────────────
       const tradeData = {
         worldIdProof: worldIdData,
         zkProof: zkData.proof,
         publicSignals: zkData.publicSignals,
+        onChainTxHash: onChainTxHash ?? null,
+        walletAddress: address ?? null,   // needed by CRE to call settle(buyer, seller, ...)
         trade: {
           side,
           tokenPair,
@@ -119,7 +212,9 @@ export function OrderForm({ nullifierHash, worldIdProof, onOrderSubmitted }: Ord
         },
         timestamp: Date.now(),
       }
-      console.log('[5/5] Submitting trade to /api/trade...')
+      console.log('[6/6] Submitting trade to /api/trade...')
+      console.log('      Wallet address (for settlement):', address ?? 'not connected')
+      console.log('      On-chain ZK tx:', onChainTxHash ?? '(simulation — no tx)')
       console.log('      Trade payload:', tradeData.trade)
 
       const res = await fetch('/api/trade', {
@@ -245,7 +340,7 @@ export function OrderForm({ nullifierHash, worldIdProof, onOrderSubmitted }: Ord
       {/* Limit Price */}
       <div className="flex flex-col gap-1.5">
         <label className={labelClass}>
-          Limit Price (USDC / {tokenPair.split('/')[0]})
+          Limit Price ({tokenPair.split('/')[1]} / {tokenPair.split('/')[0]})
         </label>
         <input
           type="number"
