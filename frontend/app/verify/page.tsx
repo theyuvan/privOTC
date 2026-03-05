@@ -13,17 +13,15 @@ export default function VerifyPage() {
   const [isVerified, setIsVerified] = useState(false)
 
   useEffect(() => {
-    // Check if already verified
-    const verified = localStorage.getItem('worldid_verified')
-    if (verified === 'true') {
-      setIsVerified(true)
-    }
+    // Clear previous verification - require fresh verification each time
+    localStorage.removeItem('worldid_verified')
+    localStorage.removeItem('worldid_nullifier')
   }, [])
 
   const handleVerified = (nullifierHash: string) => {
-    // Store verification in localStorage
-    localStorage.setItem('worldid_verified', 'true')
-    localStorage.setItem('worldid_nullifier', nullifierHash)
+    // Store verification for current session only
+    sessionStorage.setItem('worldid_verified', 'true')
+    sessionStorage.setItem('worldid_nullifier', nullifierHash)
     setIsVerified(true)
     
     // Redirect to trade page after 2 seconds

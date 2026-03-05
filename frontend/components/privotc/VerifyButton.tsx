@@ -113,7 +113,7 @@ export function VerifyButton({ onVerified }: VerifyButtonProps) {
           )}
         </span>
         <span className="px-5 py-2.5">
-          {step === 'loading' ? 'Loading…' : step === 'waiting' ? 'Verifying…' : 'Launch Trade App'}
+          {step === 'loading' ? 'Loading…' : step === 'waiting' ? 'Verifying…' : 'Verify with world ID'}
         </span>
       </motion.button>
 

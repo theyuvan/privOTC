@@ -18,8 +18,8 @@ export default function TradePage() {
   const [isVerified, setIsVerified] = useState<boolean | null>(null)
 
   useEffect(() => {
-    // Check if user has completed World ID verification
-    const verified = localStorage.getItem('worldid_verified')
+    // Check if user has completed World ID verification in current session
+    const verified = sessionStorage.getItem('worldid_verified')
     if (verified !== 'true') {
       router.push('/verify')
     } else {
