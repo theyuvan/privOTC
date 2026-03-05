@@ -1,0 +1,27 @@
+{
+  "name": "privotc",
+  "version": "1.0.0",
+  "description": "PrivOTC - Human-Verified Confidential OTC Trading Protocol",
+  "private": true,
+  "workspaces": [
+    "contracts",
+    "app",
+    "cre"
+  ],
+  "scripts": {
+    "contracts:compile": "cd contracts && npm run compile",
+    "contracts:test": "cd contracts && npm run test",
+    "contracts:deploy": "cd contracts && npm run deploy",
+    "app:dev": "cd app && npm run dev",
+    "app:build": "cd app && npm run build"
+  },
+  "keywords": [
+    "defi",
+    "otc",
+    "chainlink",
+    "worldid",
+    "confidential-compute"
+  ],
+  "author": "PrivOTC Team",
+  "license": "MIT"
+}
