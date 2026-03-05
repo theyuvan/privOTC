@@ -57,13 +57,12 @@ export function OrderForm({ nullifierHash, worldIdProof, onOrderSubmitted }: Ord
 
       setError('ZK proof generated! Submitting trade...')
 
-      // Use real World ID proof if available, otherwise mock
-      const worldIdData = worldIdProof || {
-        merkle_root: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
-        nullifier_hash: nullifierHash,
-        proof: '0xproof_' + Date.now(),
-        verification_level: 'orb',
+      // Require REAL World ID proof - no fallback!
+      if (!worldIdProof) {
+        throw new Error('World ID verification required. Please scan QR code with World App first.')
       }
+
+      const worldIdData = worldIdProof
 
       const tradeData = {
         worldIdProof: worldIdData,

@@ -32,16 +32,29 @@ export async function POST(req: NextRequest) {
       body.timestamp = Date.now()
     }
 
-    // Restructure ZK proof to match CRE expected format
+    // Validate REAL proofs exist - no fallbacks!
+    if (!body.zkProof || !body.publicSignals || body.publicSignals.length === 0) {
+      console.error('❌ Trade rejected: Missing ZK proof')
+      return NextResponse.json({ 
+        success: false, 
+        error: 'ZK proof required. Proof generation failed or incomplete.' 
+      }, { status: 400 })
+    }
+
+    if (!body.worldIdProof || !body.worldIdProof.nullifier_hash || !body.worldIdProof.merkle_root) {
+      console.error('❌ Trade rejected: Missing or invalid World ID proof')
+      return NextResponse.json({ 
+        success: false, 
+        error: 'World ID verification required. Please verify with World App.' 
+      }, { status: 400 })
+    }
+
+    // Restructure ZK proof to match CRE expected format (both proofs are REAL)
     const tradeData = {
       worldIdProof: body.worldIdProof,
       zkProof: {
-        proof: body.zkProof || {
-          pi_a: body.publicSignals ? ['0x1', '0x2'] : ['0x1', '0x2'],
-          pi_b: body.publicSignals ? [['0x3', '0x4'], ['0x5', '0x6']] : [['0x3', '0x4'], ['0x5', '0x6']],
-          pi_c: body.publicSignals ? ['0x7', '0x8'] : ['0x7', '0x8'],
-        },
-        publicSignals: body.publicSignals || body.zkProof?.publicSignals || [],
+        proof: body.zkProof,
+        publicSignals: body.publicSignals,
       },
       trade: body.trade,
       timestamp: body.timestamp,

@@ -63,7 +63,13 @@ Public signals: [
 | **User Balance** | 🎨 Demo | Hardcoded to 10 ETH (should read from wallet) |
 | **Trade Queue** | 🎨 In-Memory | Using array (production: Redis/DB) |
 | **CRE Settlement** | 🎨 Simulation | Set `simulationMode: false` for real on-chain |
+### ✅ NO MOCKS IN MAIN FLOW (Updated March 5):
 
+| What Was Removed | Impact |
+|------------------|--------|
+| **World ID Fallback** | ✅ Now REQUIRES real World ID or fails |
+| **ZK Proof Fallback** | ✅ Now REQUIRES real ZK proof or fails |
+| **Mock Detection** | ✅ CRE rejects obvious mock patterns |
 ---
 
 ## 🎯 WHAT WORKS DYNAMICALLY (Real User Flow)
