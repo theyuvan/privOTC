@@ -20,6 +20,7 @@ import {
 	EVMClient,
 	getNetwork,
 	HTTPClient,
+	ConfidentialHTTPClient,
 	ok,
 	json,
 	LATEST_BLOCK_NUMBER,
@@ -639,9 +640,9 @@ const handleFetchFromFrontend = async (
 	}
 
 	try {
-		// Use HTTPClient to fetch from localhost (works in simulation!)
+		// Use ConfidentialHTTPClient — in production, request runs inside CRE TEE enclave
 		const fetchFromFrontend = (nodeRuntime: NodeRuntime<Config>) => {
-			const httpClient = new HTTPClient();
+			const httpClient = new ConfidentialHTTPClient();
 			const response = httpClient
 				.sendRequest(nodeRuntime, {
 					url: frontendUrl,
@@ -730,7 +731,7 @@ const handleFetchFromFrontend = async (
 				.replace('/api/trade', '');
 
 			const postMatchToFrontend = (nodeRuntime: NodeRuntime<Config>) => {
-				const httpClient = new HTTPClient();
+				const httpClient = new ConfidentialHTTPClient();
 				const results: any[] = [];
 
 				for (const match of matchingResult.matches) {
