@@ -1,0 +1,35 @@
+# Tenderly Configuration for PrivOTC
+account_id = ""
+project_slug = "privotc"
+
+[project]
+compiler_version = "0.8.24"
+evm_version = "paris"
+optimizations_used = true
+optimizations_runs = 200
+
+[[contracts]]
+name = "EscrowVault"
+source = "contracts/EscrowVault.sol"
+
+[[contracts]]
+name = "OTCSettlement"
+source = "contracts/OTCSettlement.sol"
+
+[[contracts]]
+name = "ProofVerifier"
+source = "contracts/ProofVerifier.sol"
+
+# Virtual TestNet for Ethereum mainnet fork
+[[virtual_networks]]
+name = "privotc-ethereum"
+chain_id = 1
+fork_block_number = "latest"
+description = "Ethereum mainnet fork for PrivOTC testing"
+
+# Virtual TestNet for Base mainnet fork
+[[virtual_networks]]
+name = "privotc-base"
+chain_id = 8453
+fork_block_number = "latest"
+description = "Base mainnet fork for PrivOTC testing"

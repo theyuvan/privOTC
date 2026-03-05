@@ -1,0 +1,121 @@
+'use client'
+
+import { ConnectKitButton } from 'connectkit'
+import { OrderCreate } from '@/components/otc/OrderCreate'
+import { OrderBook } from '@/components/otc/OrderBook'
+import { BalanceDisplay } from '@/components/BalanceDisplay'
+import { useAccount, useChainId } from 'wagmi'
+import { Badge } from '@/components/ui/badge'
+import { AlertCircle } from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+
+export default function TradePage() {
+  const { isConnected, address } = useAccount()
+  const chainId = useChainId()
+  const router = useRouter()
+  const [isVerified, setIsVerified] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    // Check if user has completed World ID verification in current session
+    const verified = sessionStorage.getItem('worldid_verified')
+    if (verified !== 'true') {
+      router.push('/verify')
+    } else {
+      setIsVerified(true)
+    }
+  }, [router])
+
+  // Show loading while checking verification
+  if (isVerified === null) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-pulse text-muted-foreground">Checking verification...</div>
+      </div>
+    )
+  }
+
+  const getNetworkName = () => {
+    if (chainId === 9991) return 'Tenderly Ethereum TestNet'
+    if (chainId === 999480) return 'Tenderly World Chain TestNet'
+    return 'Unknown Network'
+  }
+
+  const isValidNetwork = chainId === 9991 || chainId === 999480
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <nav className="border-b">
+        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <h1 className="text-2xl font-bold">PrivOTC</h1>
+            <Badge variant="outline" className="font-mono text-xs">
+              {getNetworkName()}
+            </Badge>
+          </div>
+          <ConnectKitButton />
+        </div>
+      </nav>
+
+      {/* Main Content */}
+      <main className="container mx-auto px-4 py-8">
+        {!isConnected ? (
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Please connect your wallet to start trading.
+            </AlertDescription>
+          </Alert>
+        ) : !isValidNetwork ? (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Please switch to Tenderly Ethereum (Chain ID: 9991) or Tenderly World Chain (Chain ID: 999480).
+            </AlertDescription>
+          </Alert>
+        ) : (
+          <>
+            <div className="mb-8">
+              <h2 className="text-3xl font-bold mb-2">
+                Human-Verified Confidential OTC Trading
+              </h2>
+              <p className="text-muted-foreground">
+                Privacy-preserving institutional-grade cryptocurrency trading using Chainlink CRE and World ID verification.
+              </p>
+            </div>
+
+            {/* Balance Display */}
+            <div className="mb-6">
+              <BalanceDisplay />
+            </div>
+
+            <div className="grid lg:grid-cols-2 gap-8">
+              <OrderCreate />
+              <OrderBook />
+            </div>
+
+            <div className="mt-8 p-6 border rounded-lg bg-muted/50">
+              <h3 className="font-semibold mb-2">How It Works</h3>
+              <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
+                <li>Connect your wallet to Tenderly Virtual TestNet</li>
+                <li>Create an OTC order by depositing funds into escrow</li>
+                <li>Your order appears in the order book for matching</li>
+                <li>When matched, Chainlink CRE orchestrates private settlement</li>
+                <li>World ID verification ensures human participants only</li>
+                <li>Settlement proof is recorded on-chain, trade details remain private</li>
+              </ol>
+            </div>
+
+            {address && (
+              <div className="mt-4 text-sm text-muted-foreground text-center">
+                Connected as: {address}
+              </div>
+            )}
+          </>
+        )}
+      </main>
+    </div>
+  )
+}

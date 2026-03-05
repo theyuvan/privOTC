@@ -3,7 +3,6 @@
 import { WorkflowDiagram } from "@/components/workflow-diagram"
 import { ArrowRight } from "lucide-react"
 import { motion } from "framer-motion"
-import { VerifyButton } from "@/components/privotc/VerifyButton"
 
 const ease = [0.22, 1, 0.36, 1] as const
 
@@ -58,8 +57,16 @@ export function HeroSection({ onVerified }: HeroSectionProps) {
           matched by Chainlink CRE, settled on-chain.
         </motion.p>
 
-        {/* World ID CTA */}
-        <VerifyButton onVerified={onVerified} />
+        {/* Launch App CTA */}
+        <motion.a
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.65, ease }}
+          href="/verify"
+          className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground font-mono text-sm hover:bg-primary/90 transition-colors border border-border"
+        >
+          Launch App <ArrowRight className="w-4 h-4" />
+        </motion.a>
 
         {/* Tagline below button */}
         <motion.p
