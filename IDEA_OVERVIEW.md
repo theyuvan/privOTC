@@ -1,6 +1,6 @@
 # PrivOTC — Human-Verified Confidential OTC Trading Protocol
 
-> **One-Line Pitch:** PrivOTC is a human-verified decentralized dark pool that enables confidential institutional crypto trading using Chainlink CRE workflows, World ID identity proofs, and Tenderly Virtual TestNets for verifiable multichain execution.
+> **One-Line Pitch:** PrivOTC is a human-verified decentralized dark pool that enables confidential institutional crypto trading using Chainlink CRE workflows, World ID identity proofs, and Tenderly Virtual TestNets for verifiable execution.
 
 ---
 
@@ -57,19 +57,19 @@ Instead of trusting brokers for privacy:
 ### High-Level Flow
 
 ```
-User → World Mini App
+User → Web App (Next.js)
         ↓
 World ID Verification
         ↓
-Encrypted Trade Intent
+ZK Proof of Funds
         ↓
 Chainlink CRE Workflow
         ↓
 Confidential Matching Engine
         ↓
-Fund Verification
+Escrow Locking
         ↓
-Settlement Execution
+Atomic Settlement
         ↓
 On-chain Proof
 ```
@@ -83,8 +83,7 @@ Chainlink Runtime Environment (CRE) acts as the **core orchestration layer**.
 CRE manages:
 - ✅ Workflow automation
 - ✅ Confidential computation
-- ✅ Cross-chain execution
-- ✅ External integrations
+- ✅ External integrations (Confidential HTTP)
 - ✅ Verifiable execution
 
 ### CRE Responsibilities
@@ -104,7 +103,7 @@ if buyer.price >= seller.price:
 CRE generates a verifiable execution proof without revealing trade data.
 
 #### 4. Settlement Coordination
-CRE triggers smart contract execution across chains.
+CRE triggers smart contract execution on-chain via EVM client.
 
 ---
 
@@ -120,10 +119,10 @@ OTC markets suffer from:
 
 ### Integration Flow
 
-1. User opens **World Mini App**
-2. User verifies using **World ID**
+1. User opens the **PrivOTC web app**
+2. User verifies using **World ID** (IDKit)
 3. Proof sent to CRE workflow
-4. CRE validates proof
+4. CRE validates proof + ZK balance proof
 5. Only verified humans can trade
 
 ### Result
@@ -147,12 +146,9 @@ Institutional workflows are difficult to test on public testnets. **Tenderly Vir
 
 ### Usage in PrivOTC
 
-We fork:
-- Ethereum
-- Base
-- Other EVM chains
+We fork Ethereum mainnet state to get realistic token balances and contract conditions.
 
-CRE workflows execute simulated OTC settlements using real protocol conditions.
+CRE workflows execute OTC settlements using real protocol conditions.
 
 Judges can verify **transaction history**, **workflow execution**, and **contract interaction** through Tenderly Explorer links.
 
@@ -165,7 +161,7 @@ Judges can verify **transaction history**, **workflow execution**, and **contrac
 ```
 ┌─────────────────────────────────────────────────────┐
 │                     FRONTEND                        │
-│         World Mini App · Trade UI · Wallet          │
+│         Next.js Web App · Trade UI · Wallet         │
 └─────────────────────────────────────────────────────┘
                           ↓
 ┌─────────────────────────────────────────────────────┐
@@ -217,10 +213,10 @@ Invisible externally.
 
 ### Step 5 — Settlement Execution
 CRE triggers atomic swap:
-- **Buyer** → USDC
-- **Seller** → ETH
+- **Buyer** → WLD (locked in escrow)
+- **Seller** → ETH (locked in escrow)
 
-Executed on Tenderly Virtual TestNet.
+Executed on Tenderly Virtual TestNet (Ethereum fork).
 
 ### Step 6 — Public Confirmation
 Blockchain records:
@@ -253,7 +249,6 @@ PrivOTC enables:
 - 🏦 Institutional DeFi adoption
 - 🛡️ MEV-resistant trading
 - 🔒 Confidential treasury operations
-- 🌐 Private cross-chain settlements
 - ⚖️ Fair large-volume trading
 
 ---
@@ -273,10 +268,9 @@ PrivOTC enables:
 
 | Track | Fit |
 |---|---|
-| ✅ Chainlink Privacy Track | Core confidential compute + CRE |
-| ✅ World ID + CRE | Human verification integrated into workflow |
-| ✅ CRE in World Mini App | Frontend built as World Mini App |
-| ✅ Tenderly Virtual TestNet | All demo execution on Virtual TestNets |
+| ✅ Chainlink Privacy Track | Confidential compute + CRE + ConfidentialHTTPClient |
+| ✅ World ID + CRE | Human verification (IDKit) integrated into CRE workflow |
+| ✅ Tenderly Virtual TestNet | Full demo execution on Ethereum Virtual TestNet |
 
 > One unified architecture satisfies **all** track requirements.
 
