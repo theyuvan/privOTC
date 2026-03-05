@@ -44,6 +44,8 @@ const configSchema = z.object({
 	proofVerifierAddress: z.string(),
 	tokenPairs: z.array(z.string()), // e.g., ["ETH/USDC", "WBTC/USDC"]
 	chainName: z.string(), // e.g., "ethereum-testnet-sepolia"
+	chainId: z.string().optional(), // Tenderly virtual testnet chain ID (e.g., "9991")
+	tenderlyRpcUrl: z.string().optional(), // Tenderly RPC URL
 	gasLimit: z.string().optional(), // Gas limit for settlement transactions
 	simulationMode: z.boolean().optional(), // Skip actual ZK verification + on-chain txs in simulation
 	zkVerificationKey: z.any().optional(), // Groth16 verification key for ZK proof validation

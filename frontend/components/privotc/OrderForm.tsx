@@ -38,7 +38,7 @@ export function OrderForm({ nullifierHash, worldIdProof, onOrderSubmitted }: Ord
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          balance: '1000000000000000000', // 1 ETH (should come from wallet in production)
+          balance: '10000000000000000000', // 10 ETH demo balance (should come from wallet in production)
           walletCommitment: nullifierHash.slice(0, 16), // Use part of World ID nullifier
           minPrice: Math.floor(parseFloat(price) * 1000000).toString(),
           amount: Math.floor(parseFloat(amount) * 1e18).toString(),

@@ -61,19 +61,22 @@ app.post('/generate-proof', async (req, res) => {
     const { balance, walletCommitment, minPrice, amount, tokenId } = req.body;
 
     console.log('🔨 Generating ZK proof...');
-    console.log('   Balance:', balance);
-    console.log('   Amount:', amount);
+    console.log('   Actual balance:', balance);
+    console.log('   Required amount:', amount);
 
-    // Prepare circuit inputs
+    // Map to circuit input format
+    // Circuit expects: wallet_address, actual_balance, token_address, salt, balance_proof_data, required_amount, timestamp
     const input = {
-      balance: balance || '1000000000000000000', // 1 ETH default
-      walletCommitment: walletCommitment || '123456',
-      minPrice: minPrice || '3200000000',
-      amount: amount || '1500000000000000000',
-      tokenId: tokenId || '1',
+      wallet_address: walletCommitment || '123456',        // Private: user's wallet (from World ID nullifier)
+      actual_balance: balance || '1000000000000000000',    // Private: user's actual balance (1 ETH default)
+      token_address: tokenId || '1',                       // Private: token contract address
+      salt: '42',                                          // Private: random salt for commitment
+      balance_proof_data: '0',                             // Private: additional proof data (block number, etc)
+      required_amount: amount || '1500000000000000000',    // Public: minimum required for trade
+      timestamp: Math.floor(Date.now() / 1000).toString(), // Public: proof generation timestamp
     };
 
-    console.log('   Circuit inputs:', input);
+    console.log('   Circuit inputs prepared');
 
     // Generate proof using snarkjs
     const wasmPath = path.join(__dirname, 'build', 'balanceProof_js', 'balanceProof.wasm');
