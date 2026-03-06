@@ -15,7 +15,7 @@ export const tenderlyEthereum = defineChain({
     default: {
       http: [
         process.env.NEXT_PUBLIC_ETHEREUM_RPC ||
-          'https://virtual.mainnet.eu.rpc.tenderly.co/fc856d53-a35a-4d03-8a54-ad1f88e48a6b',
+          'https://virtual.mainnet.eu.rpc.tenderly.co/3e2383df-2048-4a2e-a150-2b82b7874ce7',
       ],
     },
   },
