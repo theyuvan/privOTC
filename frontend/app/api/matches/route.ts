@@ -12,6 +12,8 @@ export interface Match {
   deadline: number      // unix timestamp seconds (5 min from match)
   settled: boolean
   createdAt: number
+  chain?: 'ethereum' | 'worldChain'  // Which chain to use for this trade
+  token?: 'ETH' | 'WLD'              // Primary trading token
 }
 
 // In-memory match store; keyed by matchId
@@ -49,13 +51,15 @@ export async function POST(req: NextRequest) {
     tradeId: body.tradeId,
     buyerAddress: body.buyerAddress,
     sellerAddress: body.sellerAddress,
-    tokenPair: body.tokenPair || 'ETH/WLD',
+    tokenPair: body.tokenPair || body.token || 'ETH', // Support both old and new format
     ethAmount: body.ethAmount,   // wei
     wldAmount: body.wldAmount,   // wei
     matchPrice: body.matchPrice,
     deadline: body.deadline,
     settled: false,
     createdAt: Date.now(),
+    chain: body.chain || (body.token === 'WLD' ? 'worldChain' : 'ethereum'), // Add chain
+    token: body.token || body.tokenPair?.split('/')[0] || 'ETH', // Add token
   }
 
   matchStore.set(match.matchId, match)
