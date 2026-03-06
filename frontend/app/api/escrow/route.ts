@@ -2,18 +2,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createPublicClient, createWalletClient, http, keccak256, encodePacked, parseAbi } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 
-// ── Contract addresses (Tenderly Ethereum, chain 9991) ──────────────────────
-const ESCROW_ADDRESS = '0x32CB383405f866a84e42345aDb10b00228f52B3f' as `0x${string}`
-const SETTLEMENT_ADDRESS = '0x7f8e2f2685c84aECA45CF6d6bfb1663781B9813A' as `0x${string}`
+// ── Contract addresses (Tenderly Ethereum, chain 9991) - UPDATED ──────────
+const ESCROW_ADDRESS = '0xB61eC46b61E2B5eAdCB00DEED3EaB87B8f1dbC9f' as `0x${string}`
+const SETTLEMENT_ADDRESS = '0x41A580044F41C9D6BDe5821A4dF5b664A09cc370' as `0x${string}`
 const WLD_ADDRESS = '0x163f8C2467924be0ae7B5347228CABF260318753' as `0x${string}`
 const ETH_ADDRESS = '0x0000000000000000000000000000000000000000' as `0x${string}`
 
-const TENDERLY_RPC = 'https://virtual.mainnet.eu.rpc.tenderly.co/fc856d53-a35a-4d03-8a54-ad1f88e48a6b'
+const TENDERLY_RPC = 'https://virtual.mainnet.eu.rpc.tenderly.co/3e2383df-2048-4a2e-a150-2b82b7874ce7'
 
 // Deployer is set as creExecutor — used only for settlement on demo/test network
 const DEPLOYER_KEY = (
   process.env.DEPLOYER_PRIVATE_KEY ??
-  '0x251c2ccc0f55d5837809c93c9e775c8a7cd315a517fabbd52c794902a8a8bc36'
+  '0xf64b45c2063ab73b67ec0e34f24eede3a80d8e3b0a755e318d598a746c38827c'
 ) as `0x${string}`
 
 const tenderlyChain = {
