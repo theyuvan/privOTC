@@ -16103,18 +16103,18 @@ var handleFetchFromFrontend = async (runtime2, _payload) => {
     return { status: "skipped", reason: "frontendApiUrl not set" };
   }
   try {
-    const fetchFromFrontend = (nodeRuntime) => {
-      const httpClient = new ClientCapability3;
-      const response = httpClient.sendRequest(nodeRuntime, {
+    const httpClient = new ClientCapability2;
+    const response = httpClient.sendRequest(runtime2, {
+      vaultDonSecrets: [],
+      request: {
         url: frontendUrl,
         method: "GET"
-      }).result();
-      if (!ok(response)) {
-        throw new Error(`HTTP request failed with status: ${response.statusCode}`);
       }
-      return json(response);
-    };
-    const responseData = runtime2.runInNodeMode(fetchFromFrontend, (results) => results[0])().result();
+    }).result();
+    if (!ok(response)) {
+      throw new Error(`HTTP request failed with status: ${response.statusCode}`);
+    }
+    const responseData = json(response);
     const trades = responseData.trades || [];
     if (trades.length === 0) {
       runtime2.log("⚠️  No pending trades in frontend queue");
@@ -16169,56 +16169,49 @@ var handleFetchFromFrontend = async (runtime2, _payload) => {
     const matchingResult = runMatchingEngine(runtime2);
     if (matchingResult.matches.length > 0) {
       const frontendBase = (runtime2.config.frontendApiUrl ?? "http://localhost:3000/api/trade").replace("/api/trade", "");
-      const postMatchToFrontend = (nodeRuntime) => {
-        const httpClient = new ClientCapability3;
-        const results = [];
-        for (const match of matchingResult.matches) {
-          const buyerAddress = match.buyOrder.walletAddress;
-          const sellerAddress = match.sellOrder.walletAddress;
-          if (!buyerAddress || !sellerAddress) {
-            runtime2.log(`   ⚠️  Match skipped: missing wallet addresses`);
-            continue;
-          }
-          const matchIdString = `${match.buyOrder.id}-${match.sellOrder.id}-${match.matchTimestamp}`;
-          const encoder3 = new TextEncoder;
-          const matchIdBytes = encoder3.encode(matchIdString);
-          const tradeIdHex = `0x${Array.from(matchIdBytes.slice(0, 32)).map((b) => b.toString(16).padStart(2, "0")).join("").padEnd(64, "0")}`;
-          const ethWei = BigInt(Math.floor(parseFloat(match.matchAmount) * 1000000000000000000)).toString();
-          const wldWei = BigInt(Math.floor(parseFloat(match.matchAmount) * parseFloat(match.matchPrice) * 1000000000000000000)).toString();
-          const deadline = Math.floor(Date.now() / 1000) + 1800;
-          const matchPayload = {
-            matchId: matchIdString,
-            tradeId: tradeIdHex,
-            buyerAddress,
-            sellerAddress,
-            tokenPair: match.buyOrder.tokenPair,
-            ethAmount: ethWei,
-            wldAmount: wldWei,
-            matchPrice: match.matchPrice,
-            deadline
-          };
-          runtime2.log(`   \uD83D\uDCE4 Posting match to /api/matches: ${buyerAddress.slice(0, 8)} ↔ ${sellerAddress.slice(0, 8)}`);
-          try {
-            const bodyStr = JSON.stringify(matchPayload);
-            const bodyB64 = Buffer.from(bodyStr).toString("base64");
-            const resp = httpClient.sendRequest(nodeRuntime, {
+      const postHttpClient = new ClientCapability2;
+      for (const match of matchingResult.matches) {
+        const buyerAddress = match.buyOrder.walletAddress;
+        const sellerAddress = match.sellOrder.walletAddress;
+        if (!buyerAddress || !sellerAddress) {
+          runtime2.log(`   ⚠️  Match skipped: missing wallet addresses`);
+          continue;
+        }
+        const matchIdString = `${match.buyOrder.id}-${match.sellOrder.id}-${match.matchTimestamp}`;
+        const encoder3 = new TextEncoder;
+        const matchIdBytes = encoder3.encode(matchIdString);
+        const tradeIdHex = `0x${Array.from(matchIdBytes.slice(0, 32)).map((b) => b.toString(16).padStart(2, "0")).join("").padEnd(64, "0")}`;
+        const ethWei = BigInt(Math.floor(parseFloat(match.matchAmount) * 1000000000000000000)).toString();
+        const wldWei = BigInt(Math.floor(parseFloat(match.matchAmount) * parseFloat(match.matchPrice) * 1000000000000000000)).toString();
+        const deadline = Math.floor(Date.now() / 1000) + 1800;
+        const matchPayload = {
+          matchId: matchIdString,
+          tradeId: tradeIdHex,
+          buyerAddress,
+          sellerAddress,
+          tokenPair: match.buyOrder.tokenPair,
+          ethAmount: ethWei,
+          wldAmount: wldWei,
+          matchPrice: match.matchPrice,
+          deadline
+        };
+        runtime2.log(`   \uD83D\uDCE4 Posting match to /api/matches: ${buyerAddress.slice(0, 8)} ↔ ${sellerAddress.slice(0, 8)}`);
+        try {
+          const bodyStr = JSON.stringify(matchPayload);
+          const resp = postHttpClient.sendRequest(runtime2, {
+            vaultDonSecrets: [],
+            request: {
               url: `${frontendBase}/api/matches`,
               method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: bodyB64
-            }).result();
-            results.push({ ok: ok(resp), status: resp.statusCode });
-          } catch (e) {
-            runtime2.log(`   ❌ Failed to post match: ${e.message}`);
-            results.push({ ok: false, error: e.message });
-          }
+              multiHeaders: { "Content-Type": { values: ["application/json"] } },
+              bodyString: bodyStr
+            }
+          }).result();
+          runtime2.log(`   \uD83D\uDCEC Match posted: status ${resp.statusCode}`);
+        } catch (e) {
+          runtime2.log(`   ❌ Failed to post match: ${e.message}`);
         }
-        return results;
-      };
-      runtime2.runInNodeMode(postMatchToFrontend, (results) => {
-        runtime2.log(`   \uD83D\uDCEC Posted ${results.length} match(es) to frontend`);
-        return results;
-      })();
+      }
     }
     return {
       success: true,

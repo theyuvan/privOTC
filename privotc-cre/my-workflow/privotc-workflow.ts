@@ -640,25 +640,23 @@ const handleFetchFromFrontend = async (
 	}
 
 	try {
-		// Use ConfidentialHTTPClient — in production, request runs inside CRE TEE enclave
-		const fetchFromFrontend = (nodeRuntime: NodeRuntime<Config>) => {
-			const httpClient = new ConfidentialHTTPClient();
-			const response = httpClient
-				.sendRequest(nodeRuntime, {
+		// Use ConfidentialHTTPClient — takes runtime directly, no runInNodeMode needed
+		const httpClient = new ConfidentialHTTPClient();
+		const response = httpClient
+			.sendRequest(runtime, {
+				vaultDonSecrets: [],
+				request: {
 					url: frontendUrl,
 					method: 'GET',
-				})
-				.result();
+				},
+			})
+			.result();
 
-			if (!ok(response)) {
-				throw new Error(`HTTP request failed with status: ${response.statusCode}`);
-			}
+		if (!ok(response)) {
+			throw new Error(`HTTP request failed with status: ${response.statusCode}`);
+		}
 
-			return json(response);
-		};
-
-		// Execute HTTP request in node mode (single node for simulation)
-		const responseData = runtime.runInNodeMode(fetchFromFrontend, ((results: any[]) => results[0]) as any)().result() as any;
+		const responseData = json(response) as any;
 		
 		const trades = responseData.trades || [];
 		if (trades.length === 0) {
@@ -730,71 +728,62 @@ const handleFetchFromFrontend = async (
 			const frontendBase = (runtime.config.frontendApiUrl ?? 'http://localhost:3000/api/trade')
 				.replace('/api/trade', '');
 
-			const postMatchToFrontend = (nodeRuntime: NodeRuntime<Config>) => {
-				const httpClient = new ConfidentialHTTPClient();
-				const results: any[] = [];
+			const postHttpClient = new ConfidentialHTTPClient();
 
-				for (const match of matchingResult.matches) {
-					// Only post matches where we have real wallet addresses
-					const buyerAddress = match.buyOrder.walletAddress;
-					const sellerAddress = match.sellOrder.walletAddress;
+			for (const match of matchingResult.matches) {
+				// Only post matches where we have real wallet addresses
+				const buyerAddress = match.buyOrder.walletAddress;
+				const sellerAddress = match.sellOrder.walletAddress;
 
-					if (!buyerAddress || !sellerAddress) {
-						runtime.log(`   ⚠️  Match skipped: missing wallet addresses`);
-						continue;
-					}
-
-					// Build a deterministic bytes32 tradeId from the match
-					const matchIdString = `${match.buyOrder.id}-${match.sellOrder.id}-${match.matchTimestamp}`;
-					const encoder = new TextEncoder();
-					const matchIdBytes = encoder.encode(matchIdString);
-					const tradeIdHex = `0x${Array.from(matchIdBytes.slice(0, 32))
-						.map(b => b.toString(16).padStart(2, '0'))
-						.join('')
-						.padEnd(64, '0')}`;
-
-					// Amounts in wei (ETH and WLD both 18 decimals)
-					const ethWei = BigInt(Math.floor(parseFloat(match.matchAmount) * 1e18)).toString();
-					const wldWei = BigInt(Math.floor(parseFloat(match.matchAmount) * parseFloat(match.matchPrice) * 1e18)).toString();
-					const deadline = Math.floor(Date.now() / 1000) + 1800; // 30 min
-
-					const matchPayload = {
-						matchId: matchIdString,
-						tradeId: tradeIdHex,
-						buyerAddress,
-						sellerAddress,
-						tokenPair: match.buyOrder.tokenPair,
-						ethAmount: ethWei,
-						wldAmount: wldWei,
-						matchPrice: match.matchPrice,
-						deadline,
-					};
-
-					runtime.log(`   📤 Posting match to /api/matches: ${buyerAddress.slice(0, 8)} ↔ ${sellerAddress.slice(0, 8)}`);
-
-					try {
-						const bodyStr = JSON.stringify(matchPayload);
-						const bodyB64 = Buffer.from(bodyStr).toString('base64');
-						const resp = httpClient.sendRequest(nodeRuntime, {
-							url: `${frontendBase}/api/matches`,
-							method: 'POST',
-							headers: { 'Content-Type': 'application/json' },
-							body: bodyB64,
-						}).result();
-						results.push({ ok: ok(resp), status: resp.statusCode });
-					} catch (e: any) {
-						runtime.log(`   ❌ Failed to post match: ${e.message}`);
-						results.push({ ok: false, error: e.message });
-					}
+				if (!buyerAddress || !sellerAddress) {
+					runtime.log(`   ⚠️  Match skipped: missing wallet addresses`);
+					continue;
 				}
 
-				return results;
-			};
+				// Build a deterministic bytes32 tradeId from the match
+				const matchIdString = `${match.buyOrder.id}-${match.sellOrder.id}-${match.matchTimestamp}`;
+				const encoder = new TextEncoder();
+				const matchIdBytes = encoder.encode(matchIdString);
+				const tradeIdHex = `0x${Array.from(matchIdBytes.slice(0, 32))
+					.map(b => b.toString(16).padStart(2, '0'))
+					.join('')
+					.padEnd(64, '0')}`;
 
-			runtime.runInNodeMode(postMatchToFrontend, (results: any[]) => {
-				runtime.log(`   📬 Posted ${results.length} match(es) to frontend`);
-				return results;
-			})();
+				// Amounts in wei (ETH and WLD both 18 decimals)
+				const ethWei = BigInt(Math.floor(parseFloat(match.matchAmount) * 1e18)).toString();
+				const wldWei = BigInt(Math.floor(parseFloat(match.matchAmount) * parseFloat(match.matchPrice) * 1e18)).toString();
+				const deadline = Math.floor(Date.now() / 1000) + 1800; // 30 min
+
+				const matchPayload = {
+					matchId: matchIdString,
+					tradeId: tradeIdHex,
+					buyerAddress,
+					sellerAddress,
+					tokenPair: match.buyOrder.tokenPair,
+					ethAmount: ethWei,
+					wldAmount: wldWei,
+					matchPrice: match.matchPrice,
+					deadline,
+				};
+
+				runtime.log(`   📤 Posting match to /api/matches: ${buyerAddress.slice(0, 8)} ↔ ${sellerAddress.slice(0, 8)}`);
+
+				try {
+					const bodyStr = JSON.stringify(matchPayload);
+					const resp = postHttpClient.sendRequest(runtime, {
+						vaultDonSecrets: [],
+						request: {
+							url: `${frontendBase}/api/matches`,
+							method: 'POST',
+							multiHeaders: { 'Content-Type': { values: ['application/json'] } },
+							bodyString: bodyStr,
+						},
+					}).result();
+					runtime.log(`   📬 Match posted: status ${resp.statusCode}`);
+				} catch (e: any) {
+					runtime.log(`   ❌ Failed to post match: ${e.message}`);
+				}
+			}
 		}
 
 		return {

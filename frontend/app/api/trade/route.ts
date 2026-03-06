@@ -119,3 +119,11 @@ export async function POST(req: NextRequest) {
   const data = await creRes.json()
   return NextResponse.json(data)
 }
+
+// DELETE /api/trade - Clear the pending trade queue
+export async function DELETE() {
+  const count = pendingTrades.length
+  pendingTrades.length = 0
+  console.log(`🗑️  Trade queue cleared (${count} trades removed)`)
+  return NextResponse.json({ success: true, cleared: count })
+}
