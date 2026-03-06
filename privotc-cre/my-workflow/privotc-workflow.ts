@@ -43,7 +43,7 @@ const configSchema = z.object({
 	worldIdAction: z.string(),
 	otcSettlementAddress: z.string(),
 	proofVerifierAddress: z.string(),
-	tokenPairs: z.array(z.string()), // e.g., ["ETH/USDC", "WBTC/USDC"]
+	tokenPairs: z.array(z.string()), // e.g., ["ETH", "WLD"] - single tokens for same-token trades
 	chainName: z.string(), // e.g., "ethereum-testnet-sepolia"
 	chainId: z.string().optional(), // Tenderly virtual testnet chain ID (e.g., "9991")
 	tenderlyRpcUrl: z.string().optional(), // Tenderly RPC URL
@@ -64,7 +64,7 @@ interface TradeIntent {
 	walletCommitment: string;
 	proofHash: string;
 	side: 'buy' | 'sell';
-	tokenPair: string;
+	token: string; // Single token (ETH or WLD) - both parties use same token
 	amount: string;
 	price: string;
 	timestamp: number;
@@ -109,11 +109,11 @@ class ConfidentialOrderbook {
 		}
 
 		const book = intent.side === 'buy' ? this.buyOrders : this.sellOrders;
-		if (!book.has(intent.tokenPair)) {
-			book.set(intent.tokenPair, []);
+		if (!book.has(intent.token)) {
+			book.set(intent.token, []);
 		}
 		
-		const orders = book.get(intent.tokenPair)!;
+		const orders = book.get(intent.token)!;
 		orders.push(intent);
 		
 		// Sort by price-time priority
@@ -129,9 +129,9 @@ class ConfidentialOrderbook {
 		return { success: true };
 	}
 
-	findMatches(tokenPair: string): MatchedPair[] {
-		const buyOrders = this.buyOrders.get(tokenPair) || [];
-		const sellOrders = this.sellOrders.get(tokenPair) || [];
+	findMatches(token: string): MatchedPair[] {
+		const buyOrders = this.buyOrders.get(token) || [];
+		const sellOrders = this.sellOrders.get(token) || [];
 		const matches: MatchedPair[] = [];
 
 		let buyIdx = 0, sellIdx = 0;
@@ -154,17 +154,17 @@ class ConfidentialOrderbook {
 		}
 
 		if (matches.length > 0) {
-			this.buyOrders.set(tokenPair, buyOrders.slice(buyIdx));
-			this.sellOrders.set(tokenPair, sellOrders.slice(sellIdx));
+			this.buyOrders.set(token, buyOrders.slice(buyIdx));
+			this.sellOrders.set(token, sellOrders.slice(sellIdx));
 		}
 
 		return matches;
 	}
 
-	getDepth(tokenPair: string): { buys: number; sells: number } {
+	getDepth(token: string): { buys: number; sells: number } {
 		return {
-			buys: this.buyOrders.get(tokenPair)?.length || 0,
-			sells: this.sellOrders.get(tokenPair)?.length || 0
+			buys: this.buyOrders.get(token)?.length || 0,
+			sells: this.sellOrders.get(token)?.length || 0
 		};
 	}
 
@@ -185,12 +185,12 @@ class ConfidentialOrderbook {
 		const now = Date.now();
 		let cleared = 0;
 		
-		for (const [tokenPair, orders] of [...this.buyOrders.entries(), ...this.sellOrders.entries()]) {
+		for (const [token, orders] of [...this.buyOrders.entries(), ...this.sellOrders.entries()]) {
 			const filtered = orders.filter(o => now - o.timestamp < maxAge);
 			cleared += orders.length - filtered.length;
 			if (filtered.length === 0) {
-				this.buyOrders.delete(tokenPair);
-				this.sellOrders.delete(tokenPair);
+				this.buyOrders.delete(token);
+				this.sellOrders.delete(token);
 			}
 		}
 		
@@ -379,12 +379,12 @@ async function validateZKProof(
  */
 function runMatchingEngine(runtime: Runtime<Config>): { matchesFound: number; details: string; matches: MatchedPair[] } {
 	const config = runtime.config;
-	const tokenPairs = config.tokenPairs;
+	const tokens = config.tokenPairs; // Still named tokenPairs in config but contains single tokens now
 	const allMatches: MatchedPair[] = [];
 
-	for (const tokenPair of tokenPairs) {
-		runtime.log(`📊 Checking ${tokenPair}...`);
-		const depth = orderbook.getDepth(tokenPair);
+	for (const token of tokens) {
+		runtime.log(`📊 Checking ${token}...`);
+		const depth = orderbook.getDepth(token);
 		runtime.log(`   Orderbook: ${depth.buys} buys, ${depth.sells} sells`);
 
 		if (depth.buys === 0 || depth.sells === 0) {
@@ -392,7 +392,7 @@ function runMatchingEngine(runtime: Runtime<Config>): { matchesFound: number; de
 			continue;
 		}
 
-		const matches = orderbook.findMatches(tokenPair);
+		const matches = orderbook.findMatches(token);
 		if (matches.length > 0) {
 			runtime.log(`   ✅ Found ${matches.length} matches`);
 			allMatches.push(...matches);
@@ -430,7 +430,7 @@ const handleTradeIntake = async (
 	type RequestData = {
 		worldIdProof: WorldIDProof;
 		zkProof: ZKProof;
-		trade: { side: 'buy' | 'sell'; tokenPair: string; amount: string; price: string };
+		trade: { side: 'buy' | 'sell'; token: string; amount: string; price: string };
 	};
 	const requestBody = decodeJson(payload.input) as RequestData;
 	runtime.log(`📦 Received payload: ${JSON.stringify(requestBody).substring(0, 200)}...`);
@@ -461,7 +461,7 @@ const handleTradeIntake = async (
 		walletCommitment: zkResult.walletCommitment!,
 		proofHash: zkResult.proofHash!,
 		side: trade.side,
-		tokenPair: trade.tokenPair,
+		token: trade.token,
 		amount: trade.amount,
 		price: trade.price,
 		timestamp: Date.now(),
@@ -474,7 +474,7 @@ const handleTradeIntake = async (
 		return { statusCode: 400, body: { success: false, reason: addResult.reason } };
 	}
 
-	const depth = orderbook.getDepth(trade.tokenPair);
+	const depth = orderbook.getDepth(trade.token);
 	runtime.log(`✅ Trade intent added | Orderbook depth: ${depth.buys} buys, ${depth.sells} sells`);
 
 	return {
@@ -505,7 +505,7 @@ const handleMatchingEngine = (runtime: Runtime<Config>, payload: CronPayload): s
  */
 const executeSettlement = (runtime: Runtime<Config>, match: MatchedPair): { txHash?: string; error?: string } => {
 	runtime.log(`💱 Executing on-chain settlement for match ${match.buyOrder.id.substring(0, 8)}...`);
-	runtime.log(`   Pair: ${match.buyOrder.tokenPair}`);
+	runtime.log(`   Token: ${match.buyOrder.token} (same-token trade)`);
 	runtime.log(`   Amount: ${match.matchAmount} @ ${match.matchPrice}`);
 
 	const config = runtime.config;
@@ -672,7 +672,7 @@ const handleFetchFromFrontend = async (
 		// Process each trade
 		for (const tradeData of trades) {
 			runtime.log(`\n📦 Processing trade ${processed + 1}/${trades.length}:`);
-			runtime.log(`   ${tradeData.trade.side} ${tradeData.trade.amount} ${tradeData.trade.tokenPair} @ ${tradeData.trade.price}`);
+			runtime.log(`   ${tradeData.trade.side} ${tradeData.trade.amount} ${tradeData.trade.token} @ ${tradeData.trade.price}`);
 
 			// Validate World ID (pass wallet address for unique nullifier per user)
 			const worldIdResult = await validateWorldId(runtime, tradeData.worldIdProof, tradeData.walletAddress);
@@ -696,7 +696,7 @@ const handleFetchFromFrontend = async (
 				walletCommitment: zkResult.walletCommitment!,
 				proofHash: zkResult.proofHash!,
 				side: tradeData.trade.side,
-				tokenPair: tradeData.trade.tokenPair,
+				token: tradeData.trade.token,
 				amount: tradeData.trade.amount,
 				price: tradeData.trade.price,
 				timestamp: tradeData.timestamp || Date.now(),
@@ -715,8 +715,12 @@ const handleFetchFromFrontend = async (
 			processed++;
 		}
 
-		const depth = orderbook.getDepth('ETH/WLD');
-		runtime.log(`\n📊 Final orderbook state (ETH/WLD): ${depth.buys} buys, ${depth.sells} sells`);
+		// Log final orderbook state for all tokens
+		runtime.log(`\n📊 Final orderbook state:`);
+		const ethDepth = orderbook.getDepth('ETH');
+		const wldDepth = orderbook.getDepth('WLD');
+		runtime.log(`   ETH: ${ethDepth.buys} buys, ${ethDepth.sells} sells`);
+		runtime.log(`   WLD: ${wldDepth.buys} buys, ${wldDepth.sells} sells`);
 		runtime.log(`✅ Batch complete: ${processed} processed, ${failed} failed`);
 
 		// Immediately run matching after pulling trades (prevents orderbook loss between simulations)
@@ -759,7 +763,8 @@ const handleFetchFromFrontend = async (
 					tradeId: tradeIdHex,
 					buyerAddress,
 					sellerAddress,
-					tokenPair: match.buyOrder.tokenPair,
+					token: match.buyOrder.token, // Single token for same-token trade
+					chain: match.buyOrder.token === 'WLD' ? 'worldChain' : 'ethereum', // Auto-detect chain
 					ethAmount: ethWei,
 					wldAmount: wldWei,
 					matchPrice: match.matchPrice,
@@ -790,7 +795,7 @@ const handleFetchFromFrontend = async (
 			success: true,
 			processed,
 			failed,
-			orderbookDepth: depth,
+			orderbookDepth: { ETH: orderbook.getDepth('ETH'), WLD: orderbook.getDepth('WLD') },
 			matchingResult: { matchesFound: matchingResult.matchesFound, details: matchingResult.details },
 		};
 
