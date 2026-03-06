@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
   } else {
     console.log(`🔵 Peek (no drain): ${trades.length} trades in queue`)
   }
-  trades.forEach(t => console.log(`   - ${t.trade.side} ${t.trade.amount} ${t.trade.tokenPair} @ ${t.trade.price}`))
+  trades.forEach(t => console.log(`   - ${t.trade.side} ${t.trade.amount} ${t.trade.token} @ ${t.trade.price}`))
   
   return NextResponse.json({ trades })
 }
@@ -38,13 +38,13 @@ export async function POST(req: NextRequest) {
       body.timestamp = Date.now()
     }
 
-    // Validate token pair
-    const ALLOWED_PAIRS = ['ETH/WLD']
-    if (!body.trade?.tokenPair || !ALLOWED_PAIRS.includes(body.trade.tokenPair)) {
-      console.error('❌ Trade rejected: Invalid token pair:', body.trade?.tokenPair)
+    // Validate token (single token for same-token trades)
+    const ALLOWED_TOKENS = ['ETH', 'WLD']
+    if (!body.trade?.token || !ALLOWED_TOKENS.includes(body.trade.token)) {
+      console.error('❌ Trade rejected: Invalid token:', body.trade?.token)
       return NextResponse.json({
         success: false,
-        error: `Invalid token pair. Allowed: ${ALLOWED_PAIRS.join(', ')}`
+        error: `Invalid token. Allowed: ${ALLOWED_TOKENS.join(', ')}`
       }, { status: 400 })
     }
 
@@ -80,7 +80,9 @@ export async function POST(req: NextRequest) {
     
     // Add to pending trades queue
     pendingTrades.push(tradeData)
-    console.log(`✅ Trade queued: ${body.trade.side} ${body.trade.amount} ${body.trade.tokenPair} @ ${body.trade.price}`)
+    console.log(`✅ Trade queued: ${body.trade.side} ${body.trade.amount} ${body.trade.token} @ ${body.trade.price}`)
+    console.log(`   Token: ${body.trade.token} (same token for both parties)`)
+    console.log(`   Chain: ${body.chain || 'auto-detected'}`)
     console.log(`   Queue size: ${pendingTrades.length}`)
     console.log(`   Wallet address: ${body.walletAddress ?? 'not set'}`)
     console.log(`   On-chain ZK tx: ${body.onChainTxHash ?? '(simulation — no tx)'}`)
