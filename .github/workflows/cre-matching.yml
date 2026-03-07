@@ -20,10 +20,7 @@ jobs:
           node-version: '20'
       
       - name: Install CRE CLI
-        run: curl -fsSL https://cre.chain.link/install.sh | bash
-      
-      - name: Add CRE to PATH
-        run: echo "$HOME/.cre/bin" >> $GITHUB_PATH
+        run: irm https://cre.chain.link/install.ps1 | iex
       
       - name: Install dependencies
         working-directory: ./privotc-cre/my-workflow

@@ -194,7 +194,7 @@ Proves: "I have ≥ X tokens" without revealing actual balance
 - Node.js 18+ (for both zk-circuits and cre)
 - WSL (for Circom compilation)
 - Circom compiler
-- CRE CLI (`npm install -g @chainlink/cre-cli`)
+- CRE CLI (`irm https://cre.chain.link/install.ps1 | iex`)
 
 ### Configuration Files
 

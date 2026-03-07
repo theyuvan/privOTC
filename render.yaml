@@ -1,0 +1,22 @@
+version: 1
+
+services:
+  - type: web
+    name: cre-matching-service
+    env: node
+    buildCommand: |
+      irm https://cre.chain.link/install.ps1 | iex
+      cd privotc-cre/my-workflow
+      npm install
+    startCommand: |
+      cd privotc-cre/my-workflow
+      while true; do
+        echo "🔄 Running CRE matching..."
+        cre workflow simulate . --project-root . --target privotc-staging --trigger-index 2 --non-interactive
+        sleep 30
+      done
+    envVars:
+      - key: CRE_ETH_PRIVATE_KEY
+        sync: false
+      - key: NODE_ENV
+        value: production
