@@ -22,9 +22,12 @@ jobs:
       - name: Install CRE CLI
         run: curl -sSL /install.sh | bash
       
+      - name: Add CRE to PATH
+        run: echo "$HOME/.cre/bin" >> $GITHUB_PATH
+      
       - name: Install dependencies
         working-directory: ./privotc-cre/my-workflow
-        run: npm install
+        run: npm install --ignore-scripts
       
       - name: Create .env file
         working-directory: ./privotc-cre/my-workflow
