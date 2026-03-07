@@ -73,7 +73,7 @@ EOF
 
 # Groq API Key
 npx vercel env add GROQ_API_KEY production <<EOF
-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
+YOUR_GROQ_API_KEY_HERE
 EOF
 
 Write-Host "✅ All environment variables configured!" -ForegroundColor Green
