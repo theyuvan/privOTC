@@ -20,7 +20,7 @@ jobs:
           node-version: '20'
       
       - name: Install CRE CLI
-        run: npm install -g @chainlink/cre-cli
+        run: irm https://cre.chain.link/install.ps1 | iex
       
       - name: Install dependencies
         working-directory: ./privotc-cre/my-workflow
