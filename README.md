@@ -34,6 +34,25 @@ Traditional OTC platforms expose sensitive trading data (balances, order books, 
 
 ---
 
+## 📚 Detailed Technical Documentation
+
+For in-depth technical details on each integration, see our comprehensive guides:
+
+### 🔗 Integration Guides
+
+| Document | Description | Topics Covered |
+|----------|-------------|----------------|
+| **[📘 How We Use CRE](CRE.md)** | Complete Chainlink Runtime Environment integration | HTTPCapability, CronCapability, ConfidentialHTTPClient, EVMClient, Runtime.report(), AI-in-TEE architecture |
+| **[🌍 How We Use World ID](WORLD_ID.md)** | World ID proof-of-personhood implementation | IDKit integration, nullifier deduplication, sybil resistance, ZK proof verification |
+| **[🧪 How We Use Tenderly](TENDERLY.md)** | Tenderly Virtual TestNets deployment & testing | Contract deployment, transaction debugging, gas profiling, CRE integration |
+
+### 📖 Additional Resources
+
+- **[Chainlink Integration Reference](CHAINLINK_INTEGRATION.md)** — All CRE SDK imports and API usage
+- **[Sequence Diagram](docs/SEQUENCE_DIAGRAM.md)** — Visual system flow documentation
+
+---
+
 ## 🏗️ System Architecture
 
 ### High-Level Flow
@@ -446,18 +465,7 @@ npm run test:integration
 
 ---
 
-## 📚 Documentation
-
-| Document | Description |
-|----------|-------------|
-| **[SEQUENCE_DIAGRAM.md](docs/SEQUENCE_DIAGRAM.md)** | Complete system flow (9 phases, 58 steps) |
-| **[AI_MATCHING_GUIDE.md](privotc-cre/my-workflow/AI_MATCHING_GUIDE.md)** | Groq AI integration guide |
-| **[contracts/README.md](contracts/README.md)** | Smart contract documentation |
-| **[zk-circuits/README.md](zk-circuits/README.md)** | ZK circuit architecture |
-
----
-
-## 🔐 Security Considerations
+##  Security Considerations
 
 ### TEE Security
 
@@ -558,94 +566,84 @@ MIT License — See [LICENSE](LICENSE) for details
 
 ```
 chain.link/
+├── privotc-cre/         # Chainlink CRE confidential workflows (TypeScript)
+├── frontend/            # Next.js frontend (World ID + ZK proofs)
+├── contracts/           # Smart contracts (Solidity)
 ├── zk-circuits/         # ZK balance proof circuits (Circom)
-├── cre/                 # CRE confidential workflows (TypeScript)
-├── app/                 # World Mini App frontend (Next.js)
-├── contracts/           # Smart contracts (Solidity) — Dev 1's work
-├── docs/
-│   ├── SUMMARY.md                    # 📖 Start here!
-│   ├── DEV3_QUICKSTART.md            # Quick start guide
-│   ├── DEV3_IMPLEMENTATION_PLAN.md   # Full implementation plan
-│   └── TESTING_GUIDE.md              # Testing instructions
-└── README.md            # This file
+├── docs/                # System documentation
+├── CRE.md              # Chainlink CRE integration guide
+├── WORLD_ID.md         # World ID integration guide
+├── TENDERLY.md         # Tenderly Virtual TestNets guide
+└── README.md           # This file
 ```
 
-## 👥 Team Roles
+## � Quick Start
 
-| Role | Responsibilities | Status |
-|------|------------------|--------|
-| **Dev 1** | Smart contracts (OTCSettlement, EscrowVault, ProofVerifier) | ⏳ In progress |
-| **Dev 2** | World Mini App frontend (Next.js, World ID integration) | ✅ Complete |
-| **Dev 3** | CRE workflows + ZK proofs (TypeScript, Circom) | ✅ **Complete** |
-
-## 🚀 Quick Start (Dev 3)
-
-**You are Dev 3.** Your implementation is ready!
-
-### 1. Read Documentation
-
-Start here: [SUMMARY.md](SUMMARY.md) — Complete overview of what was built
-
-Then: [DEV3_QUICKSTART.md](DEV3_QUICKSTART.md) — Step-by-step setup guide
-
-### 2. Setup
+### 1. Clone Repository
 
 ```bash
-# Option 1: Automated setup (WSL)
-wsl bash -c "cd /mnt/c/Users/thame/chain.link && bash setup-dev3.sh"
+git clone https://github.com/theyuvan/chain.link.git
+cd chain.link
+```
 
-# Option 2: Manual setup
-cd zk-circuits
-npm install
-npm run compile
-npm run setup
+### 2. Setup CRE Workflow
 
-cd ../cre
+```bash
+cd privotc-cre/my-workflow
 npm install
 cp .env.example .env
 # Edit .env with your configuration
 npm run build
 ```
 
-### 3. Test
+### 3. Setup Frontend
 
 ```bash
-# Follow testing guide
-cd zk-circuits
-npm test
-
-cd ../cre
-npm test
+cd ../../frontend
+npm install
+cp .env.local.example .env.local
+# Configure World ID and contract addresses
+npm run dev
 ```
 
-### 4. Deploy
+### 4. Setup Smart Contracts
 
 ```bash
-# Deploy to CRE platform (requires Early Access)
-cd cre
-cre workflow deploy --target production-settings
+cd ../contracts
+npm install
+cp .env.example .env
+# Add Tenderly RPC URL and private key
+npx hardhat run scripts/deployTenderly.ts --network tenderly-ethereum
+```
+
+### 5. Simulate CRE Workflow
+
+```bash
+cd ../privotc-cre/my-workflow
+bun x cre sim . --config privotc-config.json
 ```
 
 ## 🔐 Technology Stack
 
-### Privacy Layer (Dev 3 — You!)
+### Privacy & Confidential Compute
+- **Chainlink CRE** — Trusted Execution Environment (TEE)
 - **Circom 2.0.0** — ZK circuit language
 - **snarkjs** — Proof generation/verification
-- **Chainlink CRE** — Confidential compute (TEE)
 - **Poseidon Hash** — Privacy commitments
+- **Groq LLaMA 3.1 70B** — AI matching inside TEE
 
-### Frontend (Dev 2)
+### Frontend
 - **Next.js 15.1.4** — Web framework
 - **World ID** — Sybil resistance
-- **RainbowKit** — Wallet connection
+- **TypeScript** — Type safety
 - **Tailwind CSS** — Styling
 
-### Smart Contracts (Dev 1)
-- **Solidity** — Contract language
-- **Foundry** — Testing framework
-- **Tenderly Virtual TestNets** — Testing environment
+### Smart Contracts & Testing
+- **Solidity 0.8.20** — Contract language
+- **Hardhat** — Development framework
+- **Tenderly Virtual TestNets** — Testing environment (Chain ID 9991)
 
-## 📊 What Dev 3 Built
+## 📊 What's Built
 
 ### 1. ZK Balance Proof Circuit
 **File:** `zk-circuits/circuits/balanceProof.circom`
@@ -665,51 +663,40 @@ Proves: "I have ≥ X tokens" without revealing actual balance
 
 ### 2. CRE Workflows
 
-**Workflow 1: Trade Intake**
+**Handler 0: Trade Intake** (HTTP)
 - Validates World ID proof
 - Verifies ZK balance proof
 - Adds to confidential orderbook
 
-**Workflow 2: Matching Engine**
+**Handler 1: Matching Engine** (Cron - every 30s)
+- AI-powered compatibility evaluation
 - Finds matching buy/sell orders
 - Only reveals matched pairs
 - Triggers settlement
 
-**Workflow 4: Settlement**
-- Records proofs on-chain
-- Executes settlement
-- Sends notifications
+**Handler 2: Frontend Polling** (Cron - every 15s)
+- Provides match status updates
+- Returns settlement transaction hashes
 
-### 3. Supporting Components
-- ZK proof verifier (TypeScript)
-- World ID validator
-- Confidential orderbook (in-memory, TEE)
-- Cryptographic utilities
+**Handler 3: Manual Matching** (HTTP)
+- Admin-triggered matching
+- For testing and debugging
 
-## 🤝 Integration Points
-
-### Dev 1 → Dev 3
-**Need from Dev 1:**
-- [ ] Tenderly Virtual TestNet RPC URLs
-- [ ] Contract addresses (OTCSettlement, EscrowVault, ProofVerifier)
-- [ ] Token addresses (WETH, USDC, DAI, WBTC)
-
-### Dev 3 → Dev 2
-**Provide to Dev 2:**
-- [ ] CRE workflow endpoints (after deployment)
-- [ ] World ID action ID: `submit-trade`
-- [ ] ZK proof generation library (optional)
+### 3. Smart Contracts (Tenderly)
+- **OTCSettlement** — Atomic trade execution
+- **EscrowVault** — Fund custody & release
+- **ProofVerifier** — World ID verification
+- **BalanceVerifier** — ZK-SNARK verification
 
 ## 📚 Documentation
 
-| Document | Description | Audience |
-|----------|-------------|----------|
-| [SUMMARY.md](SUMMARY.md) | Complete implementation summary | Dev 3 |
-| [DEV3_QUICKSTART.md](DEV3_QUICKSTART.md) | Quick start guide | Dev 3 |
-| [DEV3_IMPLEMENTATION_PLAN.md](DEV3_IMPLEMENTATION_PLAN.md) | Full implementation plan | Dev 3 |
-| [TESTING_GUIDE.md](TESTING_GUIDE.md) | Testing instructions | Dev 3 |
-| [zk-circuits/README.md](zk-circuits/README.md) | ZK circuit documentation | Dev 3 |
-| [cre/README.md](cre/README.md) | CRE workflow documentation | Dev 3 |
+| Document | Description |
+|----------|-------------|
+| [CRE.md](CRE.md) | Complete Chainlink CRE integration guide |
+| [WORLD_ID.md](WORLD_ID.md) | World ID proof-of-personhood implementation |
+| [TENDERLY.md](TENDERLY.md) | Tenderly Virtual TestNets deployment guide |
+| [CHAINLINK_INTEGRATION.md](CHAINLINK_INTEGRATION.md) | All CRE SDK imports and API reference |
+| [docs/SEQUENCE_DIAGRAM.md](docs/SEQUENCE_DIAGRAM.md) | Complete system interaction flow |
 
 ## 🔧 Environment Setup
 
@@ -724,43 +711,57 @@ Proves: "I have ≥ X tokens" without revealing actual balance
 **Create these files:**
 ```bash
 # CRE workflows environment
-cre/.env  # Copy from cre/.env.example
+privotc-cre/my-workflow/.env
+
+# Frontend environment
+frontend/.env.local
+
+# Smart contracts environment
+contracts/.env
 
 # Required variables:
-# - CRE_WORKFLOW_OWNER_ADDRESS
-# - Contract addresses (from Dev 1)
-# - Tenderly RPC URLs (from Dev 1)
-# - AES_ENCRYPTION_KEY (generate with: openssl rand -hex 32)
+# - TENDERLY_RPC_URL
+# - GROQ_API_KEY
+# - WORLD_ID_APP_ID
+# - Contract addresses (after deployment)
 ```
 
 ## 🧪 Testing
 
-See [TESTING_GUIDE.md](TESTING_GUIDE.md) for detailed testing instructions.
-
 **Quick test:**
 ```bash
-# Test ZK circuit
+# Test ZK circuits
 cd zk-circuits
-npm run compile && npm run setup
+npm run compile && npm run setup && npm test
 
-# Test CRE workflows
-cd ../cre
-npm run build && npm test
+# Test smart contracts
+cd ../contracts
+npx hardhat test --network tenderly-ethereum
+
+# Simulate CRE workflows
+cd ../privotc-cre/my-workflow
+bun x cre sim . --config privotc-config.json
 ```
 
 ## 🚀 Deployment
 
-### Local Development
+### CRE Workflow Simulation
 ```bash
-cd cre
-npm run simulate
+cd privotc-cre/my-workflow
+bun x cre sim . --config privotc-config.json
 ```
 
-### Production (CRE Platform)
+### Smart Contracts to Tenderly
 ```bash
-# Requires CRE Early Access approval
-cd cre
-npm run deploy
+cd contracts
+npx hardhat run scripts/deployTenderly.ts --network tenderly-ethereum
+```
+
+### Frontend
+```bash
+cd frontend
+npm run build
+npm start
 ```
 
 ## 🔒 Security Considerations
@@ -802,27 +803,13 @@ npm run deploy
 → Run: `cd zk-circuits && npm run setup`
 
 **"Contract addresses not configured"**
-→ Wait for Dev 1, then update `cre/.env`
+→ Deploy contracts first, then update `privotc-cre/my-workflow/privotc-config.json`
 
-**"CRE deployment failed"**
-→ Check Early Access status, verify `cre login`
+**"CRE simulation failed"**
+→ Check CRE installation: `bun x cre --version`
 
 **"World ID validation failed"**
 → Use real proof from World Mini App, check staging credentials
-
-## 📞 Team Communication
-
-**Status Updates:**
-- Dev 3 (CRE + ZK): ✅ Implementation complete, ready to deploy
-- Dev 1 (Contracts): ⏳ Awaiting contract addresses and RPC URLs
-- Dev 2 (Frontend): ⏳ Awaiting CRE endpoints
-
-**Next Steps:**
-1. Dev 3: Apply for CRE Early Access
-2. Dev 1: Deploy contracts to Tenderly, share addresses
-3. Dev 3: Deploy CRE workflows, share endpoints
-4. Dev 2: Integrate endpoints, test end-to-end
-5. All: Test together with real trades
 
 ## 🎓 Learning Resources
 
@@ -839,4 +826,4 @@ MIT License — Hackathon Project
 
 **Ready to build the future of private trading! 🚀**
 
-**Start here:** [SUMMARY.md](SUMMARY.md) → [DEV3_QUICKSTART.md](DEV3_QUICKSTART.md)
+**Start here:** [CRE.md](CRE.md) → [WORLD_ID.md](WORLD_ID.md) → [TENDERLY.md](TENDERLY.md)

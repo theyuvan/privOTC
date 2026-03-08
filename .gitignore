@@ -49,11 +49,7 @@ build/
 out/
 artifacts/
 
-# Documentation (ignore all .md files except README.md files)
-*.md
-!README.md
-!**/README.md
-!README*.md
+# Documentation: All .md files included in repository
 
 cache/
 typechain-types/
