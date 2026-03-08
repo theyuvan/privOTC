@@ -6,7 +6,6 @@
   "workspaces": [
     "contracts",
     "frontend",
-    "cre",
     "privotc-cre",
     "zk-circuits"
   ],
