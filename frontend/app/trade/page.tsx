@@ -4,7 +4,6 @@ import { ConnectKitButton } from 'connectkit'
 import { BalanceDisplay } from '@/components/BalanceDisplay'
 import { OrderForm } from '@/components/privotc/OrderForm'
 import { EscrowDeposit } from '@/components/privotc/EscrowDeposit'
-import CREMatchingTrigger from '@/components/privotc/CREMatchingTrigger'
 import { useAccount, useChainId } from 'wagmi'
 import { Badge } from '@/components/ui/badge'
 import { AlertCircle } from 'lucide-react'
@@ -150,13 +149,6 @@ export default function TradePage() {
                     <span className="ml-2 text-muted-foreground animate-pulse">(polling for match…)</span>
                   </p>
                 )}
-              </div>
-            )}
-
-            {/* Manual CRE Matching Trigger */}
-            {isConnected && (
-              <div className="mb-8">
-                <CREMatchingTrigger />
               </div>
             )}
 
