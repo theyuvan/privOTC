@@ -505,7 +505,7 @@ npm run test:integration
 
 ## 👥 Team & Contributions
 
-**Solo Developer:** [@theyuvan](https://github.com/theyuvan)  
+**Developers:** [@yuvan](https://github.com/theyuvan),[@Rohit](https://github.com/Rohitamalraj) ,[@azar](https://github.com/AZAR2305)    
 **Hackathon:** Chainlink + Tenderly Virtual TestNets Track  
 **Development Time:** 3 weeks (Feb 15 - Mar 8, 2026)
 
