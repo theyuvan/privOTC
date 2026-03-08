@@ -30,14 +30,14 @@ export function Navbar() {
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
       className="w-full px-4 pt-4 lg:px-6 lg:pt-6 flex justify-center"
     >
-      <nav className="w-full max-w-6xl border border-foreground/20 bg-background/80 backdrop-blur-sm px-6 py-3 lg:px-8">
+      <nav className="w-full max-w-6xl border border-foreground/20 bg-background/80 backdrop-blur-sm px-3 py-3 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between">
           {/* Logo */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2, duration: 0.4 }}
-            className="flex items-center gap-3 cursor-pointer"
+            className="flex items-center gap-2 cursor-pointer"
             onClick={() => router.push('/')}
           >
             <Shield size={16} strokeWidth={1.5} className="text-[#ea580c]" />
@@ -47,8 +47,7 @@ export function Navbar() {
           </motion.div>
 
           {/* Right section with nav links and theme toggle */}
-          <div className="flex items-center gap-6">
-            
+          <div className="flex items-center gap-3 sm:gap-6">
             <motion.button
               onClick={handleAboutClick}
               initial={{ opacity: 0, y: -8 }}
@@ -76,7 +75,7 @@ export function Navbar() {
               <ThemeToggle />
             </motion.div>
 
-            <span className="hidden sm:block text-[10px] font-mono tracking-widest uppercase text-muted-foreground">
+            <span className="hidden lg:block text-[10px] font-mono tracking-widest uppercase text-muted-foreground">
               Powered by Chainlink
             </span>
           </div>
