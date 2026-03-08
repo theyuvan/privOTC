@@ -1,0 +1,36 @@
+{
+  "worldIdProof": {
+    "merkle_root": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+    "nullifier_hash": "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+    "proof": "0xproof_sample_001",
+    "verification_level": "orb",
+    "description": "World ID proof verifies user is unique human without revealing identity"
+  },
+  "zkProof": {
+    "pi_a": ["0x1", "0x2"],
+    "pi_b": [["0x3", "0x4"], ["0x5", "0x6"]],
+    "pi_c": ["0x7", "0x8"],
+    "publicSignals": [
+      "1000000000000000000",
+      "0x123abc456def",
+      "3200000000",
+      "1500000000000000000",
+      "1"
+    ],
+    "description": "ZK proof shows balance >= required amount WITHOUT revealing actual balance"
+  },
+  "trade": {
+    "side": "buy",
+    "token": "ETH",
+    "chain": "ethereum",
+    "amount": "2.0",
+    "price": "3150",
+    "description": "Trade details encrypted before submission - this is just the plaintext representation"
+  },
+  "privacyNotes": {
+    "worldIdProof": "Proves humanity without KYC - nullifier_hash prevents duplicate accounts",
+    "zkProof": "Balance proof never reveals actual wallet balance - only proves sufficiency",
+    "orderEncryption": "In production, trade details would be encrypted with CRE public key",
+    "creMatching": "CRE decrypts orders inside TEE, matches them, and only reveals matched pairs"
+  }
+}
